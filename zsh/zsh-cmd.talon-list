@@ -1,0 +1,16 @@
+list: user.zsh_cmd
+-
+brew
+install
+touch
+edit: code
+bash profile: ~/.zprofile
+make directory: mkdir
+git
+status
+push
+origin
+main
+master
+commit: commit -m ""
+add: add .

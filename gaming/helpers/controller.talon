@@ -1,0 +1,10 @@
+gamepad(south:down): user.game_mode()
+gamepad(south:up): speech.disable()
+
+gamepad(east:down):
+    button_to_press = user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "button")
+    interval_in_seconds = user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "interval")
+    user.start_keypress(button_to_press, interval_in_seconds)
+    user.hud_publish_content('Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
+
+gamepad(east:up): user.game_stop()
