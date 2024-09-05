@@ -6,3 +6,4 @@ settings():
 ^command mode$:
     mode.disable("user.game")
     mode.enable("command")
+

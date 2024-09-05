@@ -12,5 +12,8 @@ push
 origin
 main
 master
-commit: commit -m ""
+commit: commit -m
 add: add .
+python
+version: --version
+deactivate

@@ -8,3 +8,6 @@ gamepad(east:down):
     user.hud_publish_content('Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
 
 gamepad(east:up): user.game_stop()
+
+gamepad(west:down): tracking.control_toggle("True")
+gamepad(west:up): tracking.control_toggle(false)

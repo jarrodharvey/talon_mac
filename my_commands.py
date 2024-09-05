@@ -19,14 +19,13 @@ class Actions:
         actions.mode.disable("dictation")
         actions.mode.disable("user.game")
         actions.mode.enable("command")
+    def join_spaces(my_list: list) -> str:
+        """Joins a list of strings with spaces"""
+        return " ".join(my_list)
     def game_mode():
         """Enable game mode"""
         actions.mode.disable("sleep")
         actions.mode.disable("dictation")
         actions.mode.disable("command")
         actions.mode.enable("user.game")
-    def join_spaces(my_list: list) -> str:
-        """Joins a list of strings with spaces"""
-        return " ".join(my_list)
-
 

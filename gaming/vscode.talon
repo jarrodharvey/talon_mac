@@ -1,9 +1,6 @@
 app: vscode
 -
 
-settings():
-    user.context_sensitive_dictation = false
-
 key <phrase>:
     insert('key("')
     insert(phrase)

@@ -1,9 +1,15 @@
-from talon import Module, actions
+from talon import Module, actions, cron
 import json
 import os
 
 mod = Module()
 mod.mode("game", desc="Mode for playing games")
+
+@mod.scope
+def eye_tracker_active():
+    return {"eye_tracker_active": actions.tracking.control_enabled()}
+
+cron.interval("1s", eye_tracker_active.update)
 
 @mod.action_class
 class Actions:
