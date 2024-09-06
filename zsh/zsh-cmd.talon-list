@@ -17,3 +17,6 @@ add: add .
 python
 version: --version
 deactivate
+search
+info
+glances

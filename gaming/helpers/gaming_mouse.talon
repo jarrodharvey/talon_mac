@@ -1,9 +1,11 @@
-user.eye_tracker_active: True
+user.eye_tracker_active: yes
 mode: user.game
 -
 
 face(smile): 
-    mouse_click(0)
-    mouse_click(0)
-parrot(click): actions.mouse_click(0)
+    mouse_click()
+    mouse_click()
+
+parrot(click): mouse_click()
+
 parrot(tch): mouse_click(1) 

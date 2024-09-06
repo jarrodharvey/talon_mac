@@ -9,5 +9,7 @@ gamepad(east:down):
 
 gamepad(east:up): user.game_stop()
 
-gamepad(west:down): tracking.control_toggle("True")
-gamepad(west:up): tracking.control_toggle(false)
+gamepad(west:down): 
+    user.game_stop()
+    user.game_tracker_on()
+gamepad(west:up): user.game_tracker_off()

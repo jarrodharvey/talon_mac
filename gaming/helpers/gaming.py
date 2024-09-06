@@ -1,15 +1,37 @@
-from talon import Module, actions, cron
+from talon import Module, actions, cron, storage, app
 import json
+import time
 import os
 
 mod = Module()
 mod.mode("game", desc="Mode for playing games")
 
+mod.list("geforce_games", "Games that are supported by GeForce Now")
+mod.list("cardinal_direction", "Match compass directions to arrows")
+
+mod.tag("user_arrows", "Arrows for gaming")
+mod.tag("cardinal_directions", "Cardinal directions")
+
 @mod.scope
 def eye_tracker_active():
-    return {"eye_tracker_active": actions.tracking.control_enabled()}
+    if actions.tracking.control_enabled():
+        return {"eye_tracker_active": "yes"}
+    else:
+        return {"eye_tracker_active": "no"}
 
-cron.interval("1s", eye_tracker_active.update)
+
+travel_distance = 1
+
+def str_to_bool(s):
+    # Converts a string to a boolean. 
+    # Assumes 'true', 'yes', '1' are True, and 'false', 'no', '0' are False.
+    # Case-insensitive comparison.
+    if s.lower() in ('true', 'yes', '1'):
+        return True
+    elif s.lower() in ('false', 'no', '0'):
+        return False
+    else:
+        raise ValueError("Cannot convert string to boolean: " + s)
 
 @mod.action_class
 class Actions:
@@ -42,6 +64,7 @@ class Actions:
         actions.key("d:up")
         actions.key("alt:up")
         actions.key("x:up")
+        actions.key("tab:up")
         actions.user.stop_keypress()
         actions.user.hud_disable_id('Text panel')
     def get_value_from_json_file(file_path: str, key: str) -> str:
@@ -52,3 +75,30 @@ class Actions:
         
         # Return the value of the key
         return data[key]
+    def game_tracker_on():
+        """Turns on the eye tracker"""
+        actions.tracking.control_toggle(True)
+        time.sleep(1)
+        eye_tracker_active.update()
+    def game_tracker_off(): 
+        """Turns off the eye tracker"""
+        actions.tracking.control_toggle(False)
+        time.sleep(1)
+        eye_tracker_active.update()
+    def walk(arrow_dir: str):
+        """Walk in a direction"""
+        actions.key(f"{arrow_dir}")
+        time.sleep(0.3)
+    def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False):
+        """Travel diagonally in a game"""
+        hold = str_to_bool(hold)
+        # The higher the hold_time_modifier, the faster the diagonal movement
+        hold_time_modifier = 0.1 * travel_distance
+        actions.user.game_stop()
+        actions.key(f"{dir1}:down")
+        actions.key(f"{dir2}:down")
+        print("Held time: ", held_time)
+        time.sleep(held_time * hold_time_modifier)
+        if hold == False:
+            actions.user.game_stop()
+        return
