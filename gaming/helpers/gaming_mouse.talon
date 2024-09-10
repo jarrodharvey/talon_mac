@@ -2,10 +2,10 @@ user.eye_tracker_active: yes
 mode: user.game
 -
 
-face(smile): 
+face(smile): mouse_click()
+
+face(stick_out_tongue):
     mouse_click()
     mouse_click()
 
-parrot(click): mouse_click()
-
-parrot(tch): mouse_click(1) 
+face(open_mouth): mouse_click(1) 

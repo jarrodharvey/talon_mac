@@ -20,3 +20,4 @@ deactivate
 search
 info
 glances
+apple script: osascript

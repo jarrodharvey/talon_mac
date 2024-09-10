@@ -11,6 +11,7 @@ mod.list("cardinal_direction", "Match compass directions to arrows")
 
 mod.tag("user_arrows", "Arrows for gaming")
 mod.tag("cardinal_directions", "Cardinal directions")
+mod.tag("boxes_gaming", "Used for boxes in gaming")
 
 @mod.scope
 def eye_tracker_active():
@@ -67,6 +68,7 @@ class Actions:
         actions.key("tab:up")
         actions.user.stop_keypress()
         actions.user.hud_disable_id('Text panel')
+        actions.user.flex_grid_boxes_toggle(0)
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
         # Open the JSON file
