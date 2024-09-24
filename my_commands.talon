@@ -1,9 +1,13 @@
-
-# Do not delete this smile command because it overrides the default right click behavior.  
 face(smile): print("You just smiled!")
+face(raise_eyebrows): print("You raised your eyebrows")
+face(jaw_open): print("You just opened your mouth")
+face(frown:stop): 
+    print("You just frowned")
 
 ^personal email$: "jarrodharvey@gmail.com"
 
-face(open_mouth): print("open")
+^fix <user.timestamped_prose_only>$:
+    user.revise_text(timestamped_prose_only)
 
-face(stick_out_tongue): print("tongue")
+parrot(click): print("click")
+parrot(tch): print("tch")

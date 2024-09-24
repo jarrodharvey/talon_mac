@@ -4,7 +4,8 @@ title: /disco elysium/i
 user.boxes_gaming_status: off
 -
 settings():
-    key_wait = 20
+    key_wait = 40
+    mouse_wheel_down_amount = 500
 tag(): user.user_arrows
 tag(): user.cardinal_directions
 ^boxes$: user.boxes_gaming_status_on()
@@ -20,8 +21,8 @@ back: key("escape")
 face(raise_eyebrows): key("tab:down")
 face(raise_eyebrows:stop): key("tab:up")
 
-face(pucker_lips_right): key("return")
-face(pucker_lips_left): 
+parrot(click): key("return")
+parrot(tch): 
     user.game_stop()
     key("escape")
 
@@ -45,12 +46,22 @@ quick save: key("f5")
 
 ^zoom out$: 
     user.mouse_scroll_down()
-    repeat(5)
+    repeat(100)
 ^zoom in$: 
     user.mouse_scroll_up()
     repeat(5)
+
+^scroll$: 
+    user.mouse_scroll_down()
+    repeat(300)
+
+^scroll up$: 
+    user.mouse_scroll_up()
+    repeat(300)
 
 ^(goat | dot)$: user.flex_grid_find_boxes() 
 ^go <number>$: 
     user.flex_grid_go_to_box(number or 1, -1)
     mouse_click()
+
+^four$: key("4")
