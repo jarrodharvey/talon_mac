@@ -1,13 +1,15 @@
 user.eye_tracker_active: yes
 mode: user.game
 -
-settings():
-    user.wink_button_left = "rmb"  
+#settings():
+#    user.wink_button_left = "rmb"  
 
-face(smile): mouse_click()
+face(smile): user.super_click()
 
 face(jaw_open):
-    mouse_click()
-    mouse_click()
+    user.super_click(0.01)
+    user.super_click(0.01)
+    user.super_click(0.01)
 
-#face(frown): mouse_click(1) 
+face(mouth_shrug_lower):
+    mouse_click(1)

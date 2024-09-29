@@ -8,7 +8,9 @@ keep_pressing = False
 
 def press_key(key_to_press: str, interval: float):
     while keep_pressing:
-        actions.key(key_to_press)
+        actions.key(f"{key_to_press}:down")
+        time.sleep(0.1)
+        actions.key(f"{key_to_press}:up")
         time.sleep(interval)
 
 @mod.action_class

@@ -13,7 +13,7 @@ class FacialExpressionDetector:
         self.wink_job = None
         self.cooldown_job = None
         self.is_in_cooldown = False
-        self.wink_check_delay = 0.07  # 60 milliseconds
+        self.wink_check_delay = 0.07
 
     def blink_start(self):
         self.is_blinking = True
@@ -41,11 +41,11 @@ class FacialExpressionDetector:
     def process_wink(self, side):
         if not self.is_blinking and not self.is_in_cooldown:  # Double-check that a blink isn't in progress and not in cooldown
             button = settings.get(f"user.wink_button_{side}")
+            print(f"{side.capitalize()} wink detected")
             # If the value of button is rmb, press the right mouse button
             if button == "rmb":
                 actions.mouse_click(1)
             elif button:  # Only press the button if it has been specified and it's not "rmb"
-                print(f"{side.capitalize()} wink detected - pressing {button}")
                 actions.key(button)
             # Start cooldown immediately after processing the wink
             self.start_cooldown()

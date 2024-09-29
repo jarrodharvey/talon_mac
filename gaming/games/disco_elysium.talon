@@ -18,8 +18,8 @@ tag(): user.cardinal_directions
 ^stop$: user.game_stop()
 
 back: key("escape")
-face(raise_eyebrows): key("tab:down")
-face(raise_eyebrows:stop): key("tab:up")
+face(brow_outer_up_left:start): key("tab:down")
+face(brow_outer_up_left:stop): key("tab:up")
 
 parrot(click): key("return")
 parrot(tch): 
@@ -65,3 +65,5 @@ quick save: key("f5")
     mouse_click()
 
 ^four$: key("4")
+
+^calibrate eye tracker$: tracking.calibrate()

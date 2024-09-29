@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app
+from talon import Module, actions, cron, storage, app, ctrl
 import json
 import time
 import os
@@ -104,3 +104,8 @@ class Actions:
         if hold == False:
             actions.user.game_stop()
         return
+    def super_click(duration: int = 0.05):
+        """Click the mouse"""
+        ctrl.mouse_click(button=0, down=True)
+        time.sleep(duration)
+        ctrl.mouse_click(button=0, up=True)
