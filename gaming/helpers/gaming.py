@@ -109,3 +109,9 @@ class Actions:
         ctrl.mouse_click(button=0, down=True)
         time.sleep(duration)
         ctrl.mouse_click(button=0, up=True)
+    def mouse_button_down(button: int):
+        """Press down a mouse button"""
+        ctrl.mouse_click(button=button, down=True)
+    def mouse_button_up(button: int):   
+        """Release a mouse button"""
+        ctrl.mouse_click(button=button, up=True)
