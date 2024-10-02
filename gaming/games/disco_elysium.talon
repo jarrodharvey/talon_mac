@@ -18,6 +18,7 @@ tag(): user.cardinal_directions
 ^stop$: user.game_stop()
 
 back: key("escape")
+
 face(brow_outer_up_left:start): key("tab:down")
 face(brow_outer_up_left:stop): key("tab:up")
 
