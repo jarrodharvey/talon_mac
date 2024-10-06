@@ -3,9 +3,7 @@ app: NVidia GeForce NOW
 title: /baldur's gate 3/i
 user.boxes_gaming_status: off
 -
-settings():
-    key_wait = 70
-tag(): user.user_arrows
+tag(): user.cardinal_directions
 
 [left] (touch | click) <user.timestamped_prose>$:
     user.click_text(timestamped_prose)
@@ -13,7 +11,7 @@ tag(): user.user_arrows
 
 ^calibrate eye tracker$: tracking.calibrate()
 
-^boxes$: user.boxes_gaming_status_on()
+#^boxes$: user.boxes_gaming_status_on()
 
 ^scroll$: 
     user.mouse_scroll_down()
@@ -23,7 +21,10 @@ tag(): user.user_arrows
     user.mouse_scroll_up()
     repeat(300)
 
-^camera$: key("home")
+^camera$: 
+    key("`")
+    user.mouse_scroll_down()
+    repeat(100)
 
 ^menu$: key("escape")
 
@@ -48,7 +49,7 @@ parrot(click):
 ^inventory$: key("i")
 ^map$: key("m")
 
-^take all$: key("space") 
+^loot$: key("space") 
 ^next$: key("space") 
 
 parrot(tch): key("escape")
@@ -57,3 +58,26 @@ parrot(tch): key("escape")
 
 face(brow_outer_up_left:start): key("e:down")
 face(brow_outer_up_left:stop): key("e:up")
+
+face(brow_down_right:start): key("q:down")
+face(brow_down_right:stop): key("q:up")
+
+^journal$: key("j")
+
+^recipes$: key("h")
+
+^jump$: key("z")
+
+^throw$: key("x") 
+
+^highlight$: key(";")
+
+^hide$: key("c")
+
+^face tester$: user.face_tester_toggle()
+
+^search <user.word>$: 
+    insert("{user.word}") 
+    key("return")
+
+^spellbook$: key("k")

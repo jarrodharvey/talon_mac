@@ -1,4 +1,5 @@
 gamepad(south:down): user.game_mode()
+
 gamepad(south:up): 
     mode.disable("user.game")
     speech.disable()
@@ -14,4 +15,6 @@ gamepad(east:up): user.game_stop()
 gamepad(west:down): 
     user.game_stop()
     user.game_tracker_on()
-gamepad(west:up): user.game_tracker_off()
+gamepad(west:up): 
+    user.game_stop()
+    user.game_tracker_off()

@@ -63,6 +63,8 @@ class Actions:
         actions.key("a:up")
         actions.key("s:up")
         actions.key("d:up")
+        actions.key("q:up")
+        actions.key("e:up")
         actions.key("alt:up")
         actions.key("x:up")
         actions.key("tab:up")
@@ -80,13 +82,19 @@ class Actions:
     def game_tracker_on():
         """Turns on the eye tracker"""
         actions.tracking.control_toggle(True)
-        time.sleep(1)
+        #time.sleep(1)
         eye_tracker_active.update()
     def game_tracker_off(): 
         """Turns off the eye tracker"""
         actions.tracking.control_toggle(False)
-        time.sleep(1)
+        #time.sleep(1)
         eye_tracker_active.update()
+    def eye_tracker_on():
+        """Turns on the eye tracker"""
+        actions.tracking.control_toggle(True)
+    def eye_tracker_off(): 
+        """Turns off the eye tracker"""
+        actions.tracking.control_toggle(False)
     def walk(arrow_dir: str):
         """Walk in a direction"""
         actions.key(f"{arrow_dir}")
@@ -104,7 +112,7 @@ class Actions:
         if hold == False:
             actions.user.game_stop()
         return
-    def super_click(duration: int = 0.05):
+    def super_click(duration: float = 0.05):
         """Click the mouse"""
         ctrl.mouse_click(button=0, down=True)
         time.sleep(duration)
