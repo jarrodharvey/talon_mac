@@ -7,12 +7,12 @@ mode: user.game
 ^{user.cardinal_direction} <number>$: user.diagonal(cardinal_direction, cardinal_direction, number, "False") 
 
 # Other cardinal directions
-^(northeast | next | vext | mixed | no fast) [hold]$: user.diagonal("up", "right", 0, "True") 
+^(northeast) [hold]$: user.diagonal("up", "right", 0, "True") 
 ^(southeast | sex | dex | texts | solace | no fast | selfish) [hold]$: user.diagonal("right", "down", 0, "True") 
 ^(northwest | now | no) [hold]$: user.diagonal("up", "left", 0, "True")
 ^(southwest | swish | swiss | switch | bush) [hold]$: user.diagonal("left", "down", 0, "True")
 
-^(northeast | next | mixed) <number>$: user.diagonal("up", "right", number, "False") 
+^(northeast) <number>$: user.diagonal("up", "right", number, "False") 
 ^(southeast | sex | texts | solace) <number>$: user.diagonal("right", "down", number, "False") 
 ^(northwest | now | new) <number>$: user.diagonal("up", "left", number, "False")
 ^(southwest | swish | switch) <number>$: user.diagonal("left", "down", number, "False")

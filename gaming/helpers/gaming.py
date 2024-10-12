@@ -3,6 +3,11 @@ import json
 import time
 import os
 
+# Global variables
+mouth_open = "no"
+
+images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
+
 mod = Module()
 mod.mode("game", desc="Mode for playing games")
 
@@ -123,3 +128,22 @@ class Actions:
     def mouse_button_up(button: int):   
         """Release a mouse button"""
         ctrl.mouse_click(button=button, up=True)
+    def click_image(image_name: str):
+        """Clicks on an image and notifies if the click fails."""
+        try:
+            # Assuming actions.user.mouse_helper_move_image_relative throws an exception if the image is not found
+            actions.user.mouse_helper_move_image_relative(images_to_click_location + image_name)
+            time.sleep(1)
+            actions.user.super_click()  # Assumes a click with button index 0
+            time.sleep(1)
+        except Exception as e:
+            # Notify the user that the image could not be found or clicked
+            app.notify(f"Failed to click the image: {image_name}. Error: {str(e)}")
+    def set_global_variable(var_name: str, value: str):
+        """Set a global variable"""
+        app.notify(mouth_open)
+        globals()[var_name] = value
+    def press_key_if_condition_met(key: str, condition: str, requirement: str):
+        """Press a key if a condition is met"""
+        if globals()[condition] == requirement:
+            actions.key(key)

@@ -1,7 +1,6 @@
 mode: user.game
 app: NVidia GeForce NOW
 title: /baldur's gate 3/i
-user.boxes_gaming_status: off
 -
 tag(): user.cardinal_directions
 
@@ -47,7 +46,10 @@ parrot(click):
 ^quick save$: key("f5")
 
 ^inventory$: key("i")
-^map$: key("m")
+^map$: 
+    key("backspace:up")
+    user.game_stop()
+    key("m")
 
 ^loot$: key("space") 
 ^next$: key("space") 
@@ -56,10 +58,10 @@ parrot(tch): key("escape")
 
 ^inspect$: key("t")
 
-face(brow_outer_up_left:start): key("e:down")
+face(brow_outer_up_left:start): user.press_key_if_condition_met("e:down", "mouth_open", "no")
 face(brow_outer_up_left:stop): key("e:up")
 
-face(brow_down_right:start): key("q:down")
+face(brow_down_right:start): user.press_key_if_condition_met("q:down", "mouth_open", "no")
 face(brow_down_right:stop): key("q:up")
 
 ^journal$: key("j")
@@ -77,7 +79,18 @@ face(brow_down_right:stop): key("q:up")
 ^face tester$: user.face_tester_toggle()
 
 ^search <user.word>$: 
+    key("backspace:up")
+    user.game_stop()
+    user.click_image("bg3_search1.png")
+    user.click_image("bg3_search2.png")
     insert("{user.word}") 
     key("return")
 
 ^spellbook$: key("k")
+
+^{user.direction} [<number_small>]$:
+    user.move_map(direction, number_small or 1)
+
+^inspiration$: key("p")
+
+^powers$: key("b")

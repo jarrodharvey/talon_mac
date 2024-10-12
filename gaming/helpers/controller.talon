@@ -1,6 +1,7 @@
 gamepad(south:down): user.game_mode()
 
 gamepad(south:up): 
+    user.game_stop()
     mode.disable("user.game")
     speech.disable()
 
