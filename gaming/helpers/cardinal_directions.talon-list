@@ -3,14 +3,6 @@ mode: user.game
 -
 
 north: up
-
 east: right
-beast: right
-base: right
-paste: right
-best: right
-
 south: down
-self: down
-
 west: left
