@@ -4,13 +4,11 @@ title: /baldur's gate 3/i
 -
 tag(): user.cardinal_directions
 
-[left] (touch | click) <user.timestamped_prose>$:
+^click <user.timestamped_prose>$:
     user.click_text(timestamped_prose)
     user.super_click()
 
 ^calibrate eye tracker$: tracking.calibrate()
-
-#^boxes$: user.boxes_gaming_status_on()
 
 ^scroll$: 
     user.mouse_scroll_down()
@@ -24,8 +22,6 @@ tag(): user.cardinal_directions
     key("`")
     user.mouse_scroll_down()
     repeat(100)
-
-^menu$: key("escape")
 
 ^zoom out$: 
     user.mouse_scroll_down()
