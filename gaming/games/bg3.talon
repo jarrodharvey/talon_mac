@@ -51,7 +51,7 @@ parrot(click):
     user.game_stop()
     key("m")
 
-^loot$: key("space") 
+^take all$: key("space") 
 ^next$: key("space") 
 
 parrot(tch): key("escape")
@@ -94,3 +94,7 @@ face(brow_down_right:stop): key("q:up")
 ^inspiration$: key("p")
 
 ^powers$: key("b")
+
+^mash$: user.set_repeat_button("space", 0.5)
+
+^stop$: user.game_stop()

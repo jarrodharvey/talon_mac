@@ -2,6 +2,8 @@ from talon import Module, actions, cron, storage, app, ctrl
 import json
 import time
 import os
+import subprocess
+import sys
 
 # Global variables
 mouth_open = "no"
@@ -74,6 +76,7 @@ class Actions:
         actions.key("x:up")
         actions.key("tab:up")
         actions.user.stop_keypress()
+        actions.user.set_global_variable("mouth_open", "no")
         actions.user.hud_disable_id('Text panel')
         actions.user.flex_grid_boxes_toggle(0)
     def get_value_from_json_file(file_path: str, key: str) -> str:
@@ -141,9 +144,35 @@ class Actions:
             app.notify(f"Failed to click the image: {image_name}. Error: {str(e)}")
     def set_global_variable(var_name: str, value: str):
         """Set a global variable"""
-        app.notify(mouth_open)
         globals()[var_name] = value
     def press_key_if_condition_met(key: str, condition: str, requirement: str):
         """Press a key if a condition is met"""
         if globals()[condition] == requirement:
             actions.key(key)
+    def set_input_volume(volume: int):
+        """
+        Sets the input volume on macOS. For gaming with discord and talon.
+        
+        :param volume: An integer representing the desired input volume (0-100).
+        """
+        if not 0 <= volume <= 100:
+            print("Volume must be between 0 and 100.")
+            return
+        
+        try:
+            subprocess.run(['osascript', '-e', f"set volume input volume {volume}"], check=True)
+            print(f"Input volume set to {volume}%.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to set input volume. Error: {e}")
+
+    if __name__ == "__main__":
+        if len(sys.argv) != 2:
+            print("Usage: python3 set_input_volume.py <volume>")
+            sys.exit(1)
+        
+        try:
+            volume = int(sys.argv[1])
+            set_input_volume(volume)
+        except ValueError:
+            print("Please provide a valid integer for the volume.")
+            sys.exit(1)
