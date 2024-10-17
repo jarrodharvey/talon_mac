@@ -37,7 +37,7 @@ parrot(click):
     key("backspace:down")
 ^dark$: key("backspace:up")
 
-^<number_small>$: key("{number_small}")
+^num <number_small>$: key("{number_small}")
 
 ^quick save$: key("f5")
 
@@ -47,7 +47,7 @@ parrot(click):
     user.game_stop()
     key("m")
 
-^take all$: key("space") 
+^extract$: key("space") 
 ^next$: key("space") 
 
 parrot(tch): key("escape")
@@ -94,3 +94,5 @@ face(brow_down_right:stop): key("q:up")
 ^mash$: user.set_repeat_button("space", 0.5)
 
 ^stop$: user.game_stop()
+
+^turn based mode$: key("shift-space")

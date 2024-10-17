@@ -2,7 +2,7 @@ user.eye_tracker_active: yes
 -
 face(smile): user.super_click()
 
-face(mouth_left):
+face(mouth_shrug_upper):
     user.super_click(0.01)
     user.super_click(0.01)
     user.super_click(0.01)

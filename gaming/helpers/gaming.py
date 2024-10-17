@@ -176,3 +176,34 @@ class Actions:
         except ValueError:
             print("Please provide a valid integer for the volume.")
             sys.exit(1)
+    def switch_microphone(mic_name: str) -> None:
+        """
+        Switches the audio input source to the specified microphone using SwitchAudioSource.
+        
+        Args:
+            mic_name (str): The name of the microphone to switch to.
+        """
+        try:
+            # Get the list of available audio input sources
+            result = subprocess.run(
+                ['SwitchAudioSource', '-a', '-t', 'input'], 
+                capture_output=True, text=True, check=True
+            )
+            
+            # Check if the specified microphone is in the list
+            available_mics = result.stdout.splitlines()
+            if mic_name not in available_mics:
+                print(f"Microphone '{mic_name}' not found. Available microphones are:")
+                for mic in available_mics:
+                    print(f"- {mic}")
+                return
+            
+            # Switch to the specified microphone
+            subprocess.run(
+                ['SwitchAudioSource', '-s', mic_name, '-t', 'input'], 
+                check=True
+            )
+            print(f"Switched to '{mic_name}' microphone.")
+        
+        except subprocess.CalledProcessError as e:
+            print(f"Error switching microphone: {e}")
