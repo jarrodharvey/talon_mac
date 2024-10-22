@@ -4,7 +4,7 @@ title: /baldur's gate 3/i
 -
 tag(): user.cardinal_directions
 
-^click <user.timestamped_prose>$:
+^touch <user.timestamped_prose>$:
     user.click_text(timestamped_prose)
     user.super_click()
 
@@ -37,7 +37,9 @@ parrot(click):
     key("backspace:down")
 ^dark$: key("backspace:up")
 
-^num <number_small>$: key("{number_small}")
+^<number_small>$: key("{number_small}")
+^first$: key("1")
+^fourth$: key("4")
 
 ^quick save$: key("f5")
 
@@ -82,6 +84,14 @@ face(brow_down_right:stop): key("q:up")
     insert("{user.word}") 
     key("return")
 
+^page$: 
+    user.click_image("bg3_next_page.png")
+
+^latest$: 
+    user.click_image("bg3_filter.png")
+    sleep(1s)
+    user.click_image("bg3_latest.png")
+
 ^spellbook$: key("k")
 
 ^{user.direction} [<number_small>]$:
@@ -95,4 +105,4 @@ face(brow_down_right:stop): key("q:up")
 
 ^stop$: user.game_stop()
 
-^turn based mode$: key("shift-space")
+^take turns$: key("shift-space")
