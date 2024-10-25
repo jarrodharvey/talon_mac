@@ -127,9 +127,9 @@ class Actions:
         ctrl.mouse_click(button=0, up=True)
     def mouse_button_down(button: int):
         """Press down a mouse button"""
-        ctrl.mouse_click(button=button, down=True)
         actions.user.eye_tracker_off()
-        time.sleep(0.08)
+        time.sleep(0.1)
+        ctrl.mouse_click(button=button, down=True)
         actions.user.eye_tracker_on()
     def mouse_button_up(button: int):   
         """Release a mouse button"""

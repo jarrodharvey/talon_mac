@@ -1,10 +1,10 @@
 gamepad(south:down): 
-    user.switch_microphone("Razer Kraken X USB")
-    user.set_input_volume(0)
+    #user.switch_microphone("Razer Kraken X USB")
+    #user.set_input_volume(0)
     user.game_mode()
 
 gamepad(south:up): 
-    user.set_input_volume(75)
+    #user.set_input_volume(75)
     user.game_stop()
     mode.disable("user.game")
     speech.disable()

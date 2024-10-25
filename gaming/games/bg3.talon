@@ -39,6 +39,7 @@ parrot(click):
 
 ^<number_small>$: key("{number_small}")
 ^first$: key("1")
+^second$: key("2")
 ^fourth$: key("4")
 
 ^quick save$: key("f5")
@@ -50,7 +51,7 @@ parrot(click):
     key("m")
 
 ^extract$: key("space") 
-^next$: key("space") 
+^turn$: key("space") 
 
 parrot(tch): key("escape")
 
@@ -106,3 +107,9 @@ face(brow_down_right:stop): key("q:up")
 ^stop$: user.game_stop()
 
 ^take turns$: key("shift-space")
+
+# Character buttons
+^vag$: key("f1")
+^koo$: key("f2")
+^locker$: key("f3")
+^core$: key("f4")
