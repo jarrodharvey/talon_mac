@@ -1,4 +1,5 @@
 user.eye_tracker_active: yes
+mode: user.game
 -
 #face(smile): user.super_click()
 
@@ -21,3 +22,9 @@ face(jaw_open:stop):
 
 face(mouth_right):
     mouse_click(1)
+
+# Clicking in games is weird so I've set this up to allow for a drag and click mode.
+^gaming drag$: user.set_global_variable("mouse_dragging", "yes") 
+^gaming click$: user.set_global_variable("mouse_dragging", "no") 
+
+^calibrate eye tracker$: tracking.calibrate()

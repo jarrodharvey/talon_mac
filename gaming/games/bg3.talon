@@ -4,11 +4,11 @@ title: /baldur's gate 3/i
 -
 tag(): user.cardinal_directions
 
+^face tester$: user.face_tester_toggle()
+
 ^touch <user.timestamped_prose>$:
     user.click_text(timestamped_prose)
     user.super_click()
-
-^calibrate eye tracker$: tracking.calibrate()
 
 ^scroll$: 
     user.mouse_scroll_down()
@@ -75,8 +75,6 @@ face(brow_down_right:stop): key("q:up")
 
 ^hide$: key("c")
 
-^face tester$: user.face_tester_toggle()
-
 ^search <user.word>$: 
     key("backspace:up")
     user.game_stop()
@@ -109,7 +107,7 @@ face(brow_down_right:stop): key("q:up")
 ^take turns$: key("shift-space")
 
 # Character buttons
-^vag$: key("f1")
-^koo$: key("f2")
-^locker$: key("f3")
-^core$: key("f4")
+^num one$: key("f1")
+^num two$: key("f2")
+^num three$: key("f3")
+^num four$: key("f4")

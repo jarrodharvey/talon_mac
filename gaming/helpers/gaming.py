@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl
+from talon import Module, actions, cron, storage, app, ctrl, settings
 import json
 import time
 import os
@@ -7,6 +7,7 @@ import sys
 
 # Global variables
 mouth_open = "no"
+mouse_dragging = "no"
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -15,10 +16,18 @@ mod.mode("game", desc="Mode for playing games")
 
 mod.list("geforce_games", "Games that are supported by GeForce Now")
 mod.list("cardinal_direction", "Match compass directions to arrows")
+mod.list("wasd_arrows", "Arrows for the wasd movement letters")
 
 mod.tag("user_arrows", "Arrows for gaming")
 mod.tag("cardinal_directions", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
+
+mod.setting(
+    "travel_distance",
+    type=int,
+    default=7,
+    desc="Controls the speed at which a character moves in a game"
+)
 
 @mod.scope
 def eye_tracker_active():
@@ -26,9 +35,6 @@ def eye_tracker_active():
         return {"eye_tracker_active": "yes"}
     else:
         return {"eye_tracker_active": "no"}
-
-
-travel_distance = 1
 
 def str_to_bool(s):
     # Converts a string to a boolean. 
@@ -111,7 +117,7 @@ class Actions:
         """Travel diagonally in a game"""
         hold = str_to_bool(hold)
         # The higher the hold_time_modifier, the faster the diagonal movement
-        hold_time_modifier = 0.1 * travel_distance
+        hold_time_modifier = 0.1 * settings.get("user.travel_distance")
         actions.user.game_stop()
         actions.key(f"{dir1}:down")
         actions.key(f"{dir2}:down")
@@ -127,10 +133,10 @@ class Actions:
         ctrl.mouse_click(button=0, up=True)
     def mouse_button_down(button: int):
         """Press down a mouse button"""
-        actions.user.eye_tracker_off()
-        time.sleep(0.1)
-        ctrl.mouse_click(button=button, down=True)
-        actions.user.eye_tracker_on()
+        if (mouse_dragging == "no"):
+            actions.user.super_click()
+        else:
+            ctrl.mouse_click(button=button, down=True)
     def mouse_button_up(button: int):   
         """Release a mouse button"""
         ctrl.mouse_click(button=button, up=True)
@@ -210,3 +216,8 @@ class Actions:
         
         except subprocess.CalledProcessError as e:
             print(f"Error switching microphone: {e}")
+    def press_key_x_times(key: str, times: int, interval: float):
+        """Press a key a specified number of times with a specified interval"""
+        for i in range(times):
+            actions.key(key)
+            time.sleep(interval)
