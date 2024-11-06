@@ -20,7 +20,7 @@ parrot(tch):
     key("z")
 
 ^mash$: user.set_repeat_button("space", 3)
-^rapid$: user.set_repeat_button("space", 0.5)
+^rapid$: user.set_repeat_button("space", 0.1)
 
 ^touch <user.timestamped_prose>$:
     user.click_text(timestamped_prose)

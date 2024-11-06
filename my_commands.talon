@@ -7,3 +7,6 @@ face(smile): print("you just smiled")
 
 parrot(click): print("click")
 parrot(tch): print("tch")
+
+parrot(hum): user.noise_start("ctrl")
+parrot(hum:stop): user.noise_stop("ctrl")
