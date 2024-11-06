@@ -1,3 +1,4 @@
+# Used for handling continuous noise, like whistling or humming, by holding a key.
 from talon import Module, actions, cron, ctrl
 
 stop_job = None
