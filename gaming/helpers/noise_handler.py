@@ -41,5 +41,5 @@ class Actions:
         if stop_job:
             print(f"Cancelling cron job with id: {stop_job}")
             cron.cancel(stop_job)
-        stop_job = cron.after("300ms", do_stop)
+        stop_job = cron.after("200ms", do_stop)
         print(f"Scheduled stop job with id: {stop_job}, key_held: {key_held}")
