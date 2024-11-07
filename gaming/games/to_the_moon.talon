@@ -15,6 +15,7 @@ tag(): user.cardinal_directions
 ^stop$: user.game_stop()
 
 ^mash$: user.set_repeat_button("return", 5)
+^rapid$: user.set_repeat_button("return", 0.5)
 
 parrot(click): 
     user.game_stop()

@@ -1,4 +1,4 @@
 {
-    "button": "space",
-    "interval": 3
+    "button": "return",
+    "interval": 0.5
 }

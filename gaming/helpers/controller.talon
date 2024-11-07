@@ -23,3 +23,8 @@ gamepad(west:down):
 gamepad(west:up): 
     user.game_stop()
     user.game_tracker_off()
+
+gamepad(l1:down): user.hiss_dpad_on()
+gamepad(l1:up): 
+    user.game_stop()
+    user.hiss_dpad_off()

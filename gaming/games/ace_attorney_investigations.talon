@@ -5,7 +5,7 @@ app: moonlight
 -
 
 settings():
-    key_hold = 70
+    key_hold = 90
     user.travel_distance = 3
 
 tag(): user.cardinal_directions
@@ -71,3 +71,6 @@ parrot(tch):
     user.click_spot("attorney yes")
 
 ^face tester$: user.face_tester_toggle()
+
+^next$: key("d")
+^previous$: key("a")

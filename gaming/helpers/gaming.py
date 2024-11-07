@@ -85,6 +85,10 @@ class Actions:
         actions.user.set_global_variable("mouth_open", "no")
         actions.user.hud_disable_id('Text panel')
         actions.user.flex_grid_boxes_toggle(0)
+        actions.user.noise_stop("right")
+        actions.user.noise_stop("left")
+        actions.user.noise_stop("up")
+        actions.user.noise_stop("down")
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
         # Open the JSON file
