@@ -1,5 +1,5 @@
 user.hiss_dpad_active: yes
-#mode: user.game
+mode: user.game
 -
 
 parrot(hum:repeat): user.noise_start("up")
@@ -14,16 +14,10 @@ parrot(fff:stop): user.noise_stop("left")
 parrot(vrr:repeat): user.noise_start("right")
 parrot(vrr:stop): user.noise_stop("right")
 
-###
+parrot(click): user.take_step("up")
 
-# parrot(hum:repeat): key("up:down")
-# parrot(hum:stop): key("up:up")
+parrot(tch): user.take_step("down")
 
-# parrot(shh:repeat): key("down:down")
-# parrot(shh:stop): key("down:up")
+parrot(raspberry): user.take_step("left")
 
-# parrot(fff:repeat): key("left:down")
-# parrot(fff:stop): key("left:up")
-
-# parrot(vrr:repeat): key("right:down")
-# parrot(vrr:stop): key("right:up")
+parrot(kiss): user.take_step("right")

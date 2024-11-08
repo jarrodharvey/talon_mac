@@ -29,6 +29,8 @@ mod.setting(
     desc="Controls the speed at which a character moves in a game"
 )
 
+
+
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -225,3 +227,8 @@ class Actions:
         for i in range(times):
             actions.key(key)
             time.sleep(interval)
+    def noise_step(key_to_hold: str, interval: float):
+        """Hold a key for a specified interval"""
+        actions.user.noise_start(key_to_hold)
+        time.sleep(interval)
+        actions.user.noise_stop(key_to_hold)

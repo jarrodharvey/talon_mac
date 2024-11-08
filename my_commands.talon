@@ -20,5 +20,3 @@ face(smile): print("you just smiled")
 
 # parrot(hum): user.noise_start("alt")
 # parrot(hum:stop): user.noise_stop("alt")
-
-parrot(whistle:repeat): print("whistle")
