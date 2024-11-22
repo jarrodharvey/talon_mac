@@ -1,19 +1,13 @@
 gamepad(south:down): 
-    #user.switch_microphone("Razer Kraken X USB")
-    #user.set_input_volume(0)
     user.game_mode()
 
 gamepad(south:up): 
-    #user.set_input_volume(75)
+    user.hiss_dpad_off()
     user.game_stop()
     mode.disable("user.game")
     speech.disable()
 
-gamepad(east:down):
-    button_to_press = user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "button")
-    interval_in_seconds = user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "interval")
-    user.start_keypress(button_to_press, interval_in_seconds)
-    user.hud_publish_content('Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
+gamepad(east:down): user.gamepad_east_down()
 
 gamepad(east:up): user.game_stop()
 
@@ -24,7 +18,9 @@ gamepad(west:up):
     user.game_stop()
     user.game_tracker_off()
 
-gamepad(l1:down): user.hiss_dpad_on()
+gamepad(l1:down): 
+    user.game_stop()
+    user.hiss_dpad_on()
 gamepad(l1:up): 
     user.game_stop()
     user.hiss_dpad_off()

@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl, settings
+from talon import Module, actions, cron, storage, app, ctrl, settings, noise
 import time
 
 mod = Module()
@@ -12,6 +12,13 @@ mod.setting(
     type=int,
     default=0.2,
     desc="Controls the speed at which a character moves in a game"
+)
+
+mod.setting(
+    "action_button",
+    type=str,
+    default="space",
+    desc="The action button for a game"
 )
 
 @mod.action_class
@@ -32,3 +39,8 @@ class Actions:
         actions.key(f"{direction}:down")
         time.sleep(settings.get("user.noise_step_interval"))
         actions.key(f"{direction}:up")
+    def press_action_button():
+        """Press the action button"""
+        actions.key(f"{settings.get('user.action_button')}:down")
+        time.sleep(settings.get("user.noise_step_interval"))
+        actions.key(f"{settings.get('user.action_button')}:up")

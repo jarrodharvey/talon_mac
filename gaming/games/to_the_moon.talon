@@ -1,10 +1,10 @@
 app: Just a To the Moon Series Beach Episode
 mode: user.game
-user.hiss_dpad_active: no
+#user.hiss_dpad_active: no
 -
 
 settings():
-    key_wait = 30
+    key_hold = 30
 
 tag(): user.user_arrows
 tag(): user.cardinal_directions    

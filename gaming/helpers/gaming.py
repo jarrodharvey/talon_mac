@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl, settings
+from talon import Module, actions, cron, storage, app, ctrl, settings, scope
 import json
 import time
 import os
@@ -8,6 +8,9 @@ import sys
 # Global variables
 mouth_open = "no"
 mouse_dragging = "no"
+cron_left_eye_closed = None
+cron_right_eye_closed = None
+brow_direction = None 
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -29,8 +32,6 @@ mod.setting(
     desc="Controls the speed at which a character moves in a game"
 )
 
-
-
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -48,7 +49,7 @@ def str_to_bool(s):
         return False
     else:
         raise ValueError("Cannot convert string to boolean: " + s)
-
+    
 @mod.action_class
 class Actions:
     def set_repeat_button(button: str, interval: float):
@@ -91,6 +92,8 @@ class Actions:
         actions.user.noise_stop("left")
         actions.user.noise_stop("up")
         actions.user.noise_stop("down")
+        actions.user.stop_left_eye_closed_cron("left")
+        actions.user.stop_right_eye_closed_cron("right")
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
         # Open the JSON file
@@ -232,3 +235,43 @@ class Actions:
         actions.user.noise_start(key_to_hold)
         time.sleep(interval)
         actions.user.noise_stop(key_to_hold)
+    def start_left_eye_closed_cron(eye_closed_key: str):
+        """Starts a cron job to check if the eye is closed"""
+        global cron_left_eye_closed
+        cron_left_eye_closed = cron.after("500ms", lambda: actions.key(f"{eye_closed_key}:down"))
+    def stop_left_eye_closed_cron(eye_closed_key: str):
+        """Stops the cron job to check if the eye is closed"""
+        global cron_left_eye_closed
+        cron.cancel(cron_left_eye_closed)
+        actions.key(f"{eye_closed_key}:up")
+    def start_right_eye_closed_cron(eye_closed_key: str):
+        """Starts a cron job to check if the eye is closed"""
+        global cron_right_eye_closed
+        cron_right_eye_closed = cron.after("500ms", lambda: actions.key(f"{eye_closed_key}:down"))
+    def stop_right_eye_closed_cron(eye_closed_key: str):
+        """Stops the cron job to check if the eye is closed"""
+        global cron_right_eye_closed
+        cron.cancel(cron_right_eye_closed)
+        actions.key(f"{eye_closed_key}:up")
+    def brow_kiss():
+        """Kiss with the brow"""
+        if brow_direction == "up":
+            actions.key("left")
+        elif brow_direction == "down":
+            actions.key("right")
+    def brow_raspberry():
+        """Raspberry with the brow"""
+        if brow_direction == "up":
+            actions.key("up")
+        elif brow_direction == "down":
+            actions.key("down")
+    def gamepad_east_down():
+        """Actions taken when the east button on the gamepad is pressed"""
+        if scope.get("user.hiss_dpad_active") == "yes":
+            actions.key("right:down")
+        else:
+            button_to_press = actions.user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "button")
+            interval_in_seconds = actions.user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "interval")
+            actions.user.start_keypress(button_to_press, interval_in_seconds)
+            actions.user.hud_publish_content(f'Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
+

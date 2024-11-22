@@ -1,14 +1,12 @@
 user.eye_tracker_active: yes
 mode: user.game
 -
-#face(smile): user.super_click()
-
 face(smile:start):
     user.mouse_button_down(0)
 face(smile:stop):
     user.mouse_button_up(0)
 
-face(mouth_shrug_upper):
+parrot(raspberry):
     user.super_click(0.01)
     user.super_click(0.01)
     user.super_click(0.01)
@@ -20,7 +18,7 @@ face(jaw_open:stop):
     user.set_global_variable("mouth_open", "no")
     user.eye_tracker_on()
 
-face(mouth_right):
+parrot(kiss):
     mouse_click(1)
 
 # Clicking in games is weird so I've set this up to allow for a drag and click mode.
