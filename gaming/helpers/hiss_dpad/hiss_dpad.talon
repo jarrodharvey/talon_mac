@@ -9,7 +9,7 @@ gamepad(east:down): user.gamepad_east_down()
 gamepad(east:up): key("right:up")
 
 parrot(hum:repeat): user.noise_start("up")
-parrot(hum:stop): user.noise_stop("up")
+parrot(hum:stop): user.noise_stop("up", 300)
 
 parrot(fff:repeat): user.noise_start("down")
-parrot(fff:stop): user.noise_stop("down")
+parrot(fff:stop): user.noise_stop("down", 400)

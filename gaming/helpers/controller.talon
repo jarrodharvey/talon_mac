@@ -1,5 +1,6 @@
 gamepad(south:down): 
     user.game_mode()
+    user.daily_exercise_reminder()
 
 gamepad(south:up): 
     user.hiss_dpad_off()

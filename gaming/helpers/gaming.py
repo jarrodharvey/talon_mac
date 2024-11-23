@@ -4,6 +4,7 @@ import time
 import os
 import subprocess
 import sys
+from datetime import date
 
 # Global variables
 mouth_open = "no"
@@ -274,4 +275,13 @@ class Actions:
             interval_in_seconds = actions.user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "interval")
             actions.user.start_keypress(button_to_press, interval_in_seconds)
             actions.user.hud_publish_content(f'Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
+    def daily_exercise_reminder():
+        """Reminds me to do daily exercises"""
+        date_last_called = storage.get("user.date_last_called")
+        today = str(date.today())
+        if date_last_called != today:
+            app.notify("Remember to do your daily exercise bike ride  before playing videogames!")
+            storage.set("user.date_last_called", today)
+        else:
+            print("No need for exercise reminder today.")
 

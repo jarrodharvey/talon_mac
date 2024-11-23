@@ -18,3 +18,20 @@ parrot(tch): key("z")
 
 ^dialogue$: user.set_repeat_button("z", 3)
 ^speed$: user.set_repeat_button("x", 0.5)
+^advance$: user.set_repeat_button("x", 2)
+
+^save game$: 
+    key("s")
+    sleep(1s)
+    user.click_image("bw_save.png") 
+    sleep(2500ms)
+    key("x")
+    sleep(1s)
+    key("x")
+    sleep(10s)
+    key("z")
+
+^healing$: 
+    user.game_stop()
+    user.set_repeat_button("z", 1)
+    user.press_key_x_times("x", 4, 2)
