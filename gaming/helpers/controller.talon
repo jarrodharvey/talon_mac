@@ -19,9 +19,5 @@ gamepad(west:up):
     user.game_stop()
     user.game_tracker_off()
 
-gamepad(l1:down): 
-    user.game_stop()
-    user.hiss_dpad_on()
-gamepad(l1:up): 
-    user.game_stop()
-    user.hiss_dpad_off()
+gamepad(r2:down): user.enable_ocr_click_button()
+gamepad(r2:up): user.disable_ocr_click_button()

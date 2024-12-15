@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl, settings, scope
+from talon import Module, actions, cron, storage, app, ctrl, settings, scope, Context
 import json
 import time
 import os
@@ -15,6 +15,9 @@ brow_direction = None
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
+ctx = Context()
+ctx.matches = "mode: user.game"
+
 mod = Module()
 mod.mode("game", desc="Mode for playing games")
 
@@ -25,6 +28,7 @@ mod.list("wasd_arrows", "Arrows for the wasd movement letters")
 mod.tag("user_arrows", "Arrows for gaming")
 mod.tag("cardinal_directions", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
+mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
 
 mod.setting(
     "travel_distance",
@@ -85,6 +89,7 @@ class Actions:
         actions.key("alt:up")
         actions.key("x:up")
         actions.key("tab:up")
+        actions.key("ctrl:up")
         actions.user.stop_keypress()
         actions.user.set_global_variable("mouth_open", "no")
         actions.user.hud_disable_id('Text panel')
@@ -280,8 +285,16 @@ class Actions:
         date_last_called = storage.get("user.date_last_called")
         today = str(date.today())
         if date_last_called != today:
-            app.notify("Remember to do your daily exercise bike ride  before playing videogames!")
+            app.notify("Remember to do your daily exercise bike ride before playing videogames!")
             storage.set("user.date_last_called", today)
         else:
             print("No need for exercise reminder today.")
+    def enable_ocr_click_button():
+        """Enables the OCR click button"""
+        actions.user.disconnect_ocr_eye_tracker()
+        ctx.tags = ["user.ocr_click_button"]
+    def disable_ocr_click_button():
+        """Disables the OCR click button"""
+        actions.user.connect_ocr_eye_tracker()
+        ctx.tags = []
 

@@ -35,3 +35,7 @@ parrot(tch): key("z")
     user.game_stop()
     user.set_repeat_button("z", 1)
     user.press_key_x_times("x", 4, 2)
+
+^double$: user.press_key_x_times("x", 2, 1)
+
+key(;): user.game_stop()
