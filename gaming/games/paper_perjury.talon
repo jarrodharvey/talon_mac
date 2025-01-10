@@ -10,7 +10,23 @@ parrot(tch):
     key("escape")
 
 ^mash$: user.set_repeat_button("space", 4)
+^rapid$: user.set_repeat_button("space", 1)
 
 ^skip$: key("ctrl:down")
 
 ^stop$: user.game_stop()
+
+^up$: 
+    user.mouse_scroll_down()
+    repeat(20)
+
+^down$: 
+    user.mouse_scroll_up()
+    repeat(20)
+
+^scroll bottom$: 
+    user.mouse_scroll_up()
+    repeat(100)
+
+^right$: user.game_click_spot("paper right")
+^left$: user.game_click_spot("paper left")

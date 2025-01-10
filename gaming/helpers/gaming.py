@@ -4,6 +4,7 @@ import time
 import os
 import subprocess
 import sys
+import random
 from datetime import date
 
 # Global variables
@@ -12,6 +13,9 @@ mouse_dragging = "no"
 cron_left_eye_closed = None
 cron_right_eye_closed = None
 brow_direction = None 
+button_presser_job = None
+grinding_job = None
+repeat_button_speed = 750
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -29,6 +33,7 @@ mod.tag("user_arrows", "Arrows for gaming")
 mod.tag("cardinal_directions", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
+mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 
 mod.setting(
     "travel_distance",
@@ -75,6 +80,9 @@ class Actions:
         print(f"Updated {file_path} with button: {button} and interval: {interval}") 
     def game_stop():
         """Stop gaming mode actions"""
+        global button_presser_job
+        global grinding_job
+
         actions.key("left:up")
         actions.key("right:up")
         actions.key("up:up")
@@ -100,6 +108,10 @@ class Actions:
         actions.user.noise_stop("down")
         actions.user.stop_left_eye_closed_cron("left")
         actions.user.stop_right_eye_closed_cron("right")
+        cron.cancel(button_presser_job)
+        button_presser_job = None
+        cron.cancel(grinding_job)
+        grinding_job = None
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
         # Open the JSON file
@@ -141,6 +153,12 @@ class Actions:
         if hold == False:
             actions.user.game_stop()
         return
+    def conditional_click():
+        """Super click if the mouse is not dragging,  otherwise button down"""
+        if mouse_dragging == "no":
+            actions.user.super_click()
+        else:
+            actions.user.mouse_button_down(0)
     def super_click(duration: float = 0.05):
         """Click the mouse"""
         ctrl.mouse_click(button=0, down=True)
@@ -148,10 +166,7 @@ class Actions:
         ctrl.mouse_click(button=0, up=True)
     def mouse_button_down(button: int):
         """Press down a mouse button"""
-        if (mouse_dragging == "no"):
-            actions.user.super_click()
-        else:
-            ctrl.mouse_click(button=button, down=True)
+        ctrl.mouse_click(button=button, down=True)
     def mouse_button_up(button: int):   
         """Release a mouse button"""
         ctrl.mouse_click(button=button, up=True)
@@ -291,10 +306,48 @@ class Actions:
             print("No need for exercise reminder today.")
     def enable_ocr_click_button():
         """Enables the OCR click button"""
+        actions.user.game_stop()
         actions.user.disconnect_ocr_eye_tracker()
         ctx.tags = ["user.ocr_click_button"]
     def disable_ocr_click_button():
         """Disables the OCR click button"""
         actions.user.connect_ocr_eye_tracker()
         ctx.tags = []
+    def game_click_spot(phrase: str):
+        """Clicks a spot on the screen"""
+        actions.user.move_to_spot(phrase)
+        time.sleep(0.5)
+        actions.user.super_click()
+    def release_all_arrow_keys_except_one(arrow_key: str):
+        """Releases all arrow keys except one"""
+        arrow_keys = ["left", "right", "up", "down"]
+        for key in arrow_keys:
+            if key != arrow_key:
+                actions.key(f"{key}:up")
+    def repeat_button_with_cron(button: str):
+        """Repeats a button press with a cron job"""
+        global button_presser_job, repeat_button_speed
+        actions.user.game_stop()
+        button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.key(button))
+    def stop_and_press_key(key: str):
+        """Stops all actions and presses a key"""
+        actions.user.game_stop()
+        cron.after("10ms", lambda: actions.key(key))
+    def image_appeared_on_screen(image: str):
+        """Detects if an image appears on screen"""
+        # returns true with a specific image of piece on the screen.
+        image_coordinates = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}")
+        return(len(image_coordinates) > 0)
+    def start_grinding(action_button: str, interval: int, battle_image: str):
+        """Start grinding in a game"""
+        global grinding_job
+        actions.user.game_stop()
+        grinding_job = cron.interval(f"{interval}ms", lambda: actions.user.grinding(action_button, battle_image))
+    def grinding(action_button: str, battle_image: str):
+        """If the battle image is on the screen then press the action button, otherwise press a random direction button"""
+        directions = ["left", "right", "up", "down"]
+        if actions.user.image_appeared_on_screen(battle_image):
+            actions.key(action_button)
+        else:
+            actions.key(directions[random.randint(0,3)])
 

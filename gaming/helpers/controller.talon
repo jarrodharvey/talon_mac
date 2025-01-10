@@ -1,12 +1,15 @@
 gamepad(south:down): 
     user.game_mode()
     user.daily_exercise_reminder()
+    # Make sure that the correct microphone is selected for setting the volume to 0
+    user.switch_microphone("Razer Kraken X USB")
+    user.set_input_volume(0)
 
 gamepad(south:up): 
-    user.hiss_dpad_off()
     user.game_stop()
     mode.disable("user.game")
     speech.disable()
+    user.set_input_volume(75)
 
 gamepad(east:down): user.gamepad_east_down()
 

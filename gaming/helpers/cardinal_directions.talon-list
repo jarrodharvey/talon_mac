@@ -2,11 +2,8 @@ list: user.cardinal_direction
 -
 north: up
 
-east: right
-beast: right
-base: right
-paste: right
-best: right
+#  The ambiguity on the word east is terrible so I am using taste instead
+taste: right
 
 south: down
 self: down

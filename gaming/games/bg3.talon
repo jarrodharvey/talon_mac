@@ -1,14 +1,12 @@
 mode: user.game
-app: NVidia GeForce NOW
-title: /baldur's gate 3/i
+#app: NVidia GeForce NOW
+#title: /baldur's gate 3/i
+app: moonlight
+user.active_manual_game: bg3
 -
 tag(): user.cardinal_directions
 
 ^face tester$: user.face_tester_toggle()
-
-^touch <user.timestamped_prose>$:
-    user.click_text(timestamped_prose)
-    user.super_click()
 
 ^scroll$: 
     user.mouse_scroll_down()
@@ -20,13 +18,13 @@ tag(): user.cardinal_directions
 
 ^camera$: 
     key("`")
-    user.mouse_scroll_down()
+    user.mouse_scroll_up()
     repeat(100)
 
-^zoom out$: 
+^zoom in$: 
     user.mouse_scroll_down()
     repeat(100)
-^zoom in$: 
+^zoom out$: 
     user.mouse_scroll_up()
     repeat(5)
 
