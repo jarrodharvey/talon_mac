@@ -9,11 +9,11 @@ tag(): user.cardinal_directions
 ^face tester$: user.face_tester_toggle()
 
 ^scroll$: 
-    user.mouse_scroll_down()
+    user.mouse_scroll_up()
     repeat(300)
 
 ^scroll up$: 
-    user.mouse_scroll_up()
+    user.mouse_scroll_down()
     repeat(300)
 
 ^camera$: 
@@ -109,3 +109,7 @@ face(brow_down_right:stop): key("q:up")
 ^num two$: key("f2")
 ^num three$: key("f3")
 ^num four$: key("f4")
+
+^double <number_small>$: 
+    user.double_click_then_wait(0.5)
+    repeat(number_small - 1)

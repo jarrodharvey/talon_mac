@@ -5,23 +5,3 @@
 
 # Facial expressions won't work without this enabled
 face(smile): print("you just smiled")
-# face(smile:start): key("left:down")
-# face(smile:stop): key("left:up")
-
-#parrot(click): print("click")
-#parrot(tch): print("tch")
-
-# parrot(hiss): user.noise_start("ctrl")
-# parrot(hiss:stop): user.noise_stop("ctrl")
-
-# parrot(shh): user.noise_start("shift")
-# parrot(shh:stop): user.noise_stop("shift")
-
-# parrot(fff): user.noise_start("cmd")
-# parrot(fff:stop): user.noise_stop("cmd")
-
-# parrot(hum): user.noise_start("alt")
-# parrot(hum:stop): user.noise_stop("alt")
-
-# parrot(kiss): print("kiss")
-# parrot(raspberry): print("raspberry")

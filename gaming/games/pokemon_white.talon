@@ -12,7 +12,9 @@ tag(): user.8bitdo_selite
 parrot(click): 
     user.game_stop()
     key("x")
-bang$: key("x")
+^bang$:
+    user.game_stop()
+    key("x")
 parrot(tch): 
     user.game_stop()
     key("z")
@@ -55,9 +57,26 @@ parrot(tch):
     user.press_key_x_times("z", 2, 1)
 
 ^double$: user.press_key_x_times("x", 2, 1)
-^(item | surf)$: 
+^triple$: user.press_key_x_times("x", 3, 1)
+
+^track$: user.press_key_x_times("z", 3, 2)
+^quack: user.press_key_x_times("z", 4, 2)
+
+^(item | swimming)$: 
     user.game_stop()
     user.press_key_x_times("x", 3, 3)
 ^bang$: user.press_key_x_times("x", 2, 0.5)
 
 ^grinding$: user.start_grinding("x", 200, "pokemon_white_battle.png")
+
+^trick$: 
+    user.click_then_wait(1)
+    repeat(2)
+
+^inventory$: 
+    user.game_stop()
+    key("s")
+    sleep(1s)
+    user.click_image("pokemon_bag.png") 
+    sleep(1s)
+    key("x")

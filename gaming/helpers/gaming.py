@@ -300,7 +300,7 @@ class Actions:
         date_last_called = storage.get("user.date_last_called")
         today = str(date.today())
         if date_last_called != today:
-            app.notify("Remember to do your daily exercise bike ride before playing videogames!")
+            app.notify("Remember to FEMDAC if you haven't already today.")
             storage.set("user.date_last_called", today)
         else:
             print("No need for exercise reminder today.")
@@ -350,4 +350,13 @@ class Actions:
             actions.key(action_button)
         else:
             actions.key(directions[random.randint(0,3)])
-
+    def click_then_wait(wait_time: int):
+        """Clicks the mouse then waits for a specified time"""
+        actions.user.super_click()
+        time.sleep(wait_time)
+    def double_click_then_wait(wait_time: int):
+        """Double clicks the mouse then waits for a specified time"""
+        actions.user.super_click(0.01)
+        actions.user.super_click(0.01)
+        actions.user.super_click(0.01)
+        time.sleep(wait_time)

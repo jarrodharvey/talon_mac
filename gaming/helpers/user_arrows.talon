@@ -32,12 +32,10 @@ mode: user.game
     user.walk(arrow_keys)
     repeat(7)
 
-(dope | dot): key("down")
-
 # homophones for arrow commands
 opt free:
     user.walk("up")
-    repeat(3)
+    repeat(2)
 (downfall | stand for):
     user.walk("down")
     repeat(3) 
@@ -119,5 +117,5 @@ wright twice:
 
 spin <user.arrow_keys>: 
     key(arrow_keys)
-    sleep(500ms)
+    sleep(500ms)z
     key(arrow_keys)

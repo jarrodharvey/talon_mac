@@ -1,15 +1,21 @@
 gamepad(south:down): 
     user.game_mode()
     user.daily_exercise_reminder()
-    # Make sure that the correct microphone is selected for setting the volume to 0
-    user.switch_microphone("Razer Kraken X USB")
+    # Set the discord microphone volume to zero
+    user.switch_microphone("MacBook Pro Microphone")
     user.set_input_volume(0)
+    # Enable the talon microphone
+    sound.set_microphone("External Microphone")
 
 gamepad(south:up): 
     user.game_stop()
     mode.disable("user.game")
     speech.disable()
-    user.set_input_volume(75)
+    # Set the discord microphone volume to 100
+    user.switch_microphone("MacBook Pro Microphone")
+    user.set_input_volume(100)
+    # Disable the talon microphone so that it won't pick up on utterances
+    sound.set_microphone("None")
 
 gamepad(east:down): user.gamepad_east_down()
 

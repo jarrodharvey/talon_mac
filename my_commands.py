@@ -19,6 +19,8 @@ class Actions:
         actions.mode.disable("dictation")
         actions.mode.disable("user.game")
         actions.mode.enable("command")
+        # Enable the talon microphone
+        actions.sound.set_microphone("External Microphone")
     def join_spaces(my_list: list) -> str:
         """Joins a list of strings with spaces"""
         return " ".join(my_list)
