@@ -4,15 +4,13 @@ app: moonlight
 -
 settings():
     key_hold = 30
+    user.super_click_duration = 0.75
 
 tag(): user.cardinal_directions
 tag(): user.user_arrows
 tag(): user.8bitdo_selite
 
 parrot(click): 
-    user.game_stop()
-    key("x")
-^bang$:
     user.game_stop()
     key("x")
 parrot(tch): 
@@ -23,7 +21,9 @@ parrot(tch):
 ^menu$: 
     user.game_stop()
     key("s")
-^map$: key("a")
+parrot(kiss): 
+    user.game_stop()
+    key("a")
 ^detail$: key("q:down")
 
 ^dialogue$: user.set_repeat_button("z", 3)
@@ -40,7 +40,7 @@ parrot(tch):
     sleep(500ms)
     key("s")
     sleep(1s)
-    user.click_image("bw_save.png") 
+    user.click_image("bw2_save.png") 
     sleep(2500ms)
     key("x")
     sleep(1s)
@@ -65,7 +65,6 @@ parrot(tch):
 ^(item | swimming)$: 
     user.game_stop()
     user.press_key_x_times("x", 3, 3)
-^bang$: user.press_key_x_times("x", 2, 0.5)
 
 ^grinding$: user.start_grinding("x", 200, "pokemon_white_battle.png")
 
@@ -77,6 +76,37 @@ parrot(tch):
     user.game_stop()
     key("s")
     sleep(1s)
-    user.click_image("pokemon_bag.png") 
+    user.click_image("bw2_bag.png") 
     sleep(1s)
     key("x")
+
+^inventory$: 
+    user.game_stop()
+    key("s")
+    sleep(1s)
+    user.click_image("bw2_bag.png") 
+    sleep(1s)
+    key("x")
+
+^pokemon$: 
+    user.game_stop()
+    key("s")
+    sleep(1s)
+    user.click_image("bw_pokemon.png") 
+    sleep(1s)
+
+^shift${"type":"response","action":{"type":"noAction"},"actions":[]}: user.click_image("pokemon_white_shift.png") 
+
+^poke one$: user.click_spot("poke one")
+^poke two$: user.click_spot("poke two")
+^poke three$: user.click_spot("poke three")
+^(poke for | perk full)$: user.click_spot("poke for")
+^poke five$: user.click_spot("poke five")
+^poke six$: user.click_spot("poke six")
+
+^switch out$: user.click_spot("switch out")
+
+^box left$: user.click_image("pk_box_left.png")
+^box right$: user.click_image("pk_box_right.png")
+
+^detail$: key("q")

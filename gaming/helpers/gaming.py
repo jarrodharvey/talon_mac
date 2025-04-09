@@ -16,6 +16,7 @@ brow_direction = None
 button_presser_job = None
 grinding_job = None
 repeat_button_speed = 750
+brow_rotate = "no"
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -34,12 +35,19 @@ mod.tag("cardinal_directions", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 
 mod.setting(
     "travel_distance",
     type=int,
     default=7,
     desc="Controls the speed at which a character moves in a game"
+)
+mod.setting(
+    "super_click_duration",
+    type=int,
+    default=0.5,
+    desc="Duration of a super click"
 )
 
 @mod.scope
@@ -100,6 +108,7 @@ class Actions:
         actions.key("ctrl:up")
         actions.user.stop_keypress()
         actions.user.set_global_variable("mouth_open", "no")
+        actions.user.set_global_variable("brow_rotate", "no")
         actions.user.hud_disable_id('Text panel')
         actions.user.flex_grid_boxes_toggle(0)
         actions.user.noise_stop("right")
@@ -140,18 +149,22 @@ class Actions:
         """Walk in a direction"""
         actions.key(f"{arrow_dir}")
         time.sleep(0.3)
-    def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False):
+    def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False, stop_self: bool = True):
         """Travel diagonally in a game"""
         hold = str_to_bool(hold)
         # The higher the hold_time_modifier, the faster the diagonal movement
         hold_time_modifier = 0.1 * settings.get("user.travel_distance")
-        actions.user.game_stop()
+        if stop_self:
+            actions.user.game_stop()
         actions.key(f"{dir1}:down")
         actions.key(f"{dir2}:down")
         print("Held time: ", held_time)
         time.sleep(held_time * hold_time_modifier)
-        if hold == False:
+        if hold == False and stop_self:
             actions.user.game_stop()
+        if stop_self == False:
+            actions.key(f"{dir1}:up")
+            actions.key(f"{dir2}:up")
         return
     def conditional_click():
         """Super click if the mouse is not dragging,  otherwise button down"""
@@ -159,10 +172,10 @@ class Actions:
             actions.user.super_click()
         else:
             actions.user.mouse_button_down(0)
-    def super_click(duration: float = 0.05):
+    def super_click():
         """Click the mouse"""
         ctrl.mouse_click(button=0, down=True)
-        time.sleep(duration)
+        time.sleep(settings.get("user.super_click_duration"))
         ctrl.mouse_click(button=0, up=True)
     def mouse_button_down(button: int):
         """Press down a mouse button"""
@@ -329,6 +342,11 @@ class Actions:
         global button_presser_job, repeat_button_speed
         actions.user.game_stop()
         button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.key(button))
+    def repeat_diagonal_with_cron(button1: str, button2: str):
+        """Repeats two button presses simultaneously with a cron job"""
+        global button_presser_job, repeat_button_speed
+        actions.user.game_stop()
+        button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.user.diagonal(button1, button2, 1, "False", False))
     def stop_and_press_key(key: str):
         """Stops all actions and presses a key"""
         actions.user.game_stop()
@@ -360,3 +378,11 @@ class Actions:
         actions.user.super_click(0.01)
         actions.user.super_click(0.01)
         time.sleep(wait_time)
+    def eyebrow_toggle():
+        """Toggles the eyebrow"""
+        global brow_rotate
+        if brow_rotate == "no":
+            actions.user.set_global_variable("brow_rotate", "yes")
+        else:
+            actions.user.set_global_variable("brow_rotate", "no")
+        actions.user.hud_publish_content(f'Toggled eyebrow rotation to {brow_rotate}', 'example', 'Eyebrow rotation')
