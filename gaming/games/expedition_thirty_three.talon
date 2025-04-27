@@ -20,25 +20,33 @@ parrot(click):
     key(f)
 parrot(tch): key(esc)
 parrot(raspberry): key("space")
+parrot(kiss): key("q")
 
 ^stop$: user.game_stop()
 
-^walk$: 
+^(walk | run)$: 
     user.game_stop()
     key(0)
     sleep(500ms)
     key("w:down")
 
+^character$: key("t")
+
 ^(mash | dialogue)$: 
     key("f")
-    user.set_repeat_button("f", 5)
+    user.set_repeat_button("f", 6)
+^battle$: 
+    user.set_repeat_button("f", 1)
 ^discard$: 
     key("space")
     user.set_repeat_button("space", 5)
+
+^menu$: key("tab")
 
 # Battle commands
 ^items$: key("w")
 ^skills$: key("e")
 ^attack$: key("f")
 ^assault$: key("q")
-^overcharge$: key("w")
+^charge$: key("w")
+^aim$: mouse_click(1)
