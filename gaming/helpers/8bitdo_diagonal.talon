@@ -16,3 +16,7 @@ key(keypad_4): user.repeat_diagonal_with_cron("up", "left")
 # Down on numpad
 key(keypad_2): user.repeat_diagonal_with_cron("down", "left")
 
+key(pageup:down): user.repeat_diagonal_with_cron("up", "up")
+key(pagedown:down): user.repeat_diagonal_with_cron("down", "down")
+key(home:down): user.repeat_diagonal_with_cron("left", "left")
+key(end:down): user.repeat_diagonal_with_cron("right", "right")

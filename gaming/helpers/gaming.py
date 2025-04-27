@@ -17,6 +17,7 @@ button_presser_job = None
 grinding_job = None
 repeat_button_speed = 750
 brow_rotate = "no"
+mouse_mover_job = None
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -32,10 +33,13 @@ mod.list("wasd_arrows", "Arrows for the wasd movement letters")
 
 mod.tag("user_arrows", "Arrows for gaming")
 mod.tag("cardinal_directions", "Cardinal directions")
+mod.tag("wasd_directions", "Cardinal directions")
+mod.tag("wasd_directions_3d", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
 
 mod.setting(
     "travel_distance",
@@ -43,6 +47,35 @@ mod.setting(
     default=7,
     desc="Controls the speed at which a character moves in a game"
 )
+
+mod.setting(
+    "forward_button",
+    type=str,
+    default="w",
+    desc="The forward button in a video game"
+)
+
+mod.setting(
+    "centre_camera_button",
+    type=str,
+    default="w",
+    desc="The centre camera in a video game"
+)
+
+mod.setting(
+    "mouse_movement_speed",
+    type=int,
+    default=1000,
+    desc="Controls the speed at which the mouse moves"
+)
+
+mod.setting(
+    "mouse_movement_distance",
+    type=int,
+    default=1000,
+    desc="Controls the distance at which the mouse moves"
+)
+
 mod.setting(
     "super_click_duration",
     type=int,
@@ -90,17 +123,21 @@ class Actions:
         """Stop gaming mode actions"""
         global button_presser_job
         global grinding_job
+        global mouse_mover_job
 
         actions.key("left:up")
         actions.key("right:up")
         actions.key("up:up")
         actions.key("down:up")
         actions.key("u:up")
+        actions.key("z:up")
+        actions.key("x:up")
         actions.key("w:up")
         actions.key("a:up")
         actions.key("s:up")
         actions.key("d:up")
         actions.key("q:up")
+        actions.key("0:up")
         actions.key("e:up")
         actions.key("alt:up")
         actions.key("x:up")
@@ -117,6 +154,8 @@ class Actions:
         actions.user.noise_stop("down")
         actions.user.stop_left_eye_closed_cron("left")
         actions.user.stop_right_eye_closed_cron("right")
+        cron.cancel(mouse_mover_job)
+        mouse_mover_job = None
         cron.cancel(button_presser_job)
         button_presser_job = None
         cron.cancel(grinding_job)
@@ -151,11 +190,11 @@ class Actions:
         time.sleep(0.3)
     def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False, stop_self: bool = True):
         """Travel diagonally in a game"""
+        if stop_self:
+            actions.user.game_stop()
         hold = str_to_bool(hold)
         # The higher the hold_time_modifier, the faster the diagonal movement
         hold_time_modifier = 0.1 * settings.get("user.travel_distance")
-        if stop_self:
-            actions.user.game_stop()
         actions.key(f"{dir1}:down")
         actions.key(f"{dir2}:down")
         print("Held time: ", held_time)
@@ -386,3 +425,49 @@ class Actions:
         else:
             actions.user.set_global_variable("brow_rotate", "no")
         actions.user.hud_publish_content(f'Toggled eyebrow rotation to {brow_rotate}', 'example', 'Eyebrow rotation')
+    def divide_by_forty_five(number: int):
+        """Divides a number by 45"""
+        if number == 0:
+            return 0
+        else:
+            return number / 45
+    def multi_keypress(key_to_press: str, interval: int, times: float):
+        """Presses a key multiple times"""
+        for i in range(int(times)):
+            actions.key(key_to_press)
+            time.sleep(interval)
+    def move_mouse_relative(direction: str, movement_distance: int = None):
+        """moves the mouse relative to the current position"""
+        if movement_distance is None:
+            movement_distance = settings.get("user.mouse_movement_distance")
+        if direction == "up":
+            ctrl.mouse_move(ctrl.mouse_pos()[0], ctrl.mouse_pos()[1] - movement_distance)
+        elif direction == "right":
+            ctrl.mouse_move(ctrl.mouse_pos()[0] + movement_distance, ctrl.mouse_pos()[1])
+        elif direction == "down":
+            ctrl.mouse_move(ctrl.mouse_pos()[0], ctrl.mouse_pos()[1] + movement_distance)
+        elif direction == "left":
+            ctrl.mouse_move(ctrl.mouse_pos()[0] - movement_distance, ctrl.mouse_pos()[1])
+    def relative_mouse_mover(direction: str):
+        """Moves the mouse on a scheduled interval"""
+        actions.user.game_stop()
+        global mouse_mover_job 
+        mouse_movement_speed = settings.get("user.mouse_movement_speed")
+        mouse_movement_distance = settings.get("user.mouse_movement_distance")
+        mouse_mover_job = cron.interval(f"{mouse_movement_speed}ms", lambda: actions.user.move_mouse_relative(direction))
+    def diagonal_3d(dir1: str, dir2: str):
+        """Travel diagonally in a 3d game"""
+        actions.user.game_stop()
+        centre_camera_button = settings.get("user.centre_camera_button")
+        forward_button = settings.get("user.forward_button")
+        current_game = storage.get("user.manual_game")
+        time.sleep(0.2)
+        actions.key(f"{dir1}:down")
+        actions.key(f"{dir2}:down")
+        time.sleep(0.2)
+        actions.key(f"{dir1}:up")
+        actions.key(f"{dir2}:up")
+        time.sleep(0.2)
+        actions.key("c")
+        time.sleep(0.2)
+        actions.key(f"{forward_button}:down")

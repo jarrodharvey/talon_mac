@@ -2,6 +2,7 @@ user.active_manual_game: pokemon white
 mode: user.game
 app: moonlight
 -
+
 settings():
     key_hold = 30
     user.super_click_duration = 0.75
