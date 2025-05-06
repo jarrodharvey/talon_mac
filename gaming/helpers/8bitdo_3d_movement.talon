@@ -17,3 +17,18 @@ key(keypad_8):
 key(keypad_2):
     user.game_stop()
     key("s:down")
+
+# Forward diagonal movement
+key(;): 
+    user.game_stop()
+    key("w:down")
+    key("a:down")
+key([): 
+    user.game_stop()
+    key("w:down")
+    key("d:down")
+
+key(pageup:down): user.stop_and_press_key("w")
+key(pagedown:down): user.stop_and_press_key("s")
+key(home:down): user.stop_and_press_key("a")
+key(end:down): user.stop_and_press_key("d")

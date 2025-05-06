@@ -18,6 +18,7 @@ grinding_job = None
 repeat_button_speed = 750
 brow_rotate = "no"
 mouse_mover_job = None
+looking_around = "no"
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -470,4 +471,5 @@ class Actions:
         time.sleep(0.2)
         actions.key("c")
         time.sleep(0.2)
-        actions.key(f"{forward_button}:down")
+        if looking_around == "no":
+            actions.key(f"{forward_button}:down")
