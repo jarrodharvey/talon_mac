@@ -1,0 +1,11 @@
+Fixing moonlight controller:
+
+Go to the game page in steam.
+
+Click "Edit controller settings".
+
+Enable steam input (trust me).
+
+Under "Quick settings by action set" select "Nothing".
+
+This sets all buttons on the controller to do nothing.

@@ -40,7 +40,6 @@ parrot(click):
     key(e)
     key(f)
 parrot(tch): key(esc)
-parrot(raspberry): key("space")
 
 ^stop$: user.game_stop()
 
@@ -106,6 +105,8 @@ parrot(raspberry): key("space")
     key("c:up")
 # Dodge
 parrot(kiss): key("q")
+# Jump
+parrot(raspberry): key("space")
 # Parry is parrot(click)
 # Fire button
 key(keypad_9): mouse_click(0)

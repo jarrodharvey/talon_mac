@@ -15,7 +15,7 @@ cron_right_eye_closed = None
 brow_direction = None 
 button_presser_job = None
 grinding_job = None
-repeat_button_speed = 750
+repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
 looking_around = "no"
@@ -39,6 +39,8 @@ mod.tag("wasd_directions_3d", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
 
@@ -161,6 +163,7 @@ class Actions:
         button_presser_job = None
         cron.cancel(grinding_job)
         grinding_job = None
+        actions.user.stop_continuous_navigation()
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
         # Open the JSON file

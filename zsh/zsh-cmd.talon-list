@@ -23,4 +23,5 @@ glances
 apple script: osascript
 source environment: source venv/bin/activate
 upgrade
+environment: source venv/bin/activate
 pip
