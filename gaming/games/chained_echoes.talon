@@ -7,7 +7,8 @@ settings():
     #key_hold = 30
     user.super_click_duration = 0.8
     user.travel_distance = 1
-    user.navigation_mode = "vertical" 
+    user.navigation_mode = "vertical"
+    user.game_action_button = "space" 
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -93,10 +94,7 @@ parrot(kiss):
 
 ^double$: user.press_key_x_times("space", 2, 1)
 
-# Smart menu navigation using OCR + image template matching
-^go journal$: user.navigate_continuously_wasd("Journal", "chained_hand.png")
-
-# Dynamic menu navigation - navigate to any word using OCR with unified X/Y proximity
-^go <user.word>$: user.navigate_to_word_wasd(word)
+# Dynamic menu navigation - navigate to any word using OCR
+^go <user.word>$: user.navigate_to_word_wasd_with_action(word)
 
 ^quack: user.press_key_x_times("escape", 4, 2)

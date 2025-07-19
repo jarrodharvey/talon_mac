@@ -45,6 +45,13 @@ mod.setting(
     desc="Navigation mode: 'unified' (X/Y proximity), 'vertical' (prioritize vertical with tight Y check)"
 )
 
+mod.setting(
+    "game_action_button",
+    type=str,
+    default="space",
+    desc="Button to press when selecting/activating menu items after navigation"
+)
+
 @mod.action_class
 class MenuPathfindingActions:
     def test_navigate_to_text_with_highlight(target_text: str, highlight_image: str = "apple_logo.png"):
@@ -259,7 +266,7 @@ class MenuPathfindingActions:
         y_diff = pos1[1] - pos2[1]
         return (x_diff ** 2 + y_diff ** 2) ** 0.5
 
-    def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False) -> bool:
+    def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False, action_button: str = None) -> bool:
         """Single navigation step - check proximity and move if needed"""
         global navigation_steps_taken, last_direction_pressed
         
@@ -313,13 +320,18 @@ class MenuPathfindingActions:
                 print(f"Unified mode - X close: {x_close}, Y close: {y_close}, On target: {is_on_target}")
             
             if is_on_target:
-                if extra_step and last_direction_pressed:
+                if action_button:
+                    print(f"Reached target! Pressing action button: {action_button}")
+                    actions.key(action_button)
+                    actions.user.stop_continuous_navigation()
+                    return True
+                elif extra_step and last_direction_pressed:
                     print(f"Reached target! Taking extra step with {last_direction_pressed}")
                     actions.key(last_direction_pressed)
                     actions.user.stop_continuous_navigation()
                     return True
                 else:
-                    print(f"Reached target! X diff: {abs(x_diff):.1f} <= {proximity_x}, Y diff: {abs(y_diff):.1f} <= {proximity_y}")
+                    print(f"Reached target!")
                     actions.user.stop_continuous_navigation()
                     return True
 
@@ -385,7 +397,7 @@ class MenuPathfindingActions:
             actions.user.stop_continuous_navigation()
             return False
 
-    def start_continuous_navigation(target_text: str, highlight_image: str, use_wasd: bool = False, max_steps: int = None, extra_step: bool = False) -> None:
+    def start_continuous_navigation(target_text: str, highlight_image: str, use_wasd: bool = False, max_steps: int = None, extra_step: bool = False, action_button: str = None) -> None:
         """Start continuous navigation with cron job until target reached or game_stop called"""
         global navigation_job, navigation_steps_taken, last_direction_pressed
         
@@ -400,10 +412,11 @@ class MenuPathfindingActions:
         navigation_interval = settings.get("user.navigation_interval")
         navigation_job = cron.interval(
             f"{navigation_interval}ms", 
-            lambda: actions.user.navigate_step(target_text, highlight_image, use_wasd, max_steps, extra_step)
+            lambda: actions.user.navigate_step(target_text, highlight_image, use_wasd, max_steps, extra_step, action_button)
         )
         max_steps_text = f" (max {max_steps} steps)" if max_steps else ""
-        print(f"Started continuous navigation to '{target_text}' every {navigation_interval}ms{max_steps_text}")
+        action_text = f" (will press '{action_button}')" if action_button else ""
+        print(f"Started continuous navigation to '{target_text}'{action_text} every {navigation_interval}ms{max_steps_text}")
 
     def stop_continuous_navigation() -> None:
         """Stop continuous navigation job"""
@@ -413,34 +426,59 @@ class MenuPathfindingActions:
             navigation_job = None
             print("Stopped continuous navigation")
 
-    def navigate_continuously_wasd(target_text: str, highlight_image: str) -> None:
+    def navigate_continuously(target_text: str, highlight_image: str, use_wasd: bool = True, max_steps: int = None, extra_step: bool = False, action_button: str = None) -> None:
+        """Start continuous navigation with configurable input method and behavior"""
+        actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, extra_step, action_button)
+
+    # Backwards compatibility wrappers
+    def navigate_continuously_wasd(target_text: str, highlight_image: str, action_button: str = None) -> None:
         """Start continuous navigation using WASD keys"""
-        actions.user.start_continuous_navigation(target_text, highlight_image, True, None, False)
+        actions.user.navigate_continuously(target_text, highlight_image, True, None, False, action_button)
 
-    def navigate_continuously_arrows(target_text: str, highlight_image: str) -> None:
+    def navigate_continuously_arrows(target_text: str, highlight_image: str, action_button: str = None) -> None:
         """Start continuous navigation using arrow keys"""
-        actions.user.start_continuous_navigation(target_text, highlight_image, False, None, False)
+        actions.user.navigate_continuously(target_text, highlight_image, False, None, False, action_button)
 
-    def navigate_continuously_wasd_extra(target_text: str, highlight_image: str, max_steps: int = None) -> None:
+    def navigate_continuously_wasd_extra(target_text: str, highlight_image: str, max_steps: int = None, action_button: str = None) -> None:
         """Start continuous navigation using WASD keys with extra step"""
-        actions.user.start_continuous_navigation(target_text, highlight_image, True, max_steps, True)
+        actions.user.navigate_continuously(target_text, highlight_image, True, max_steps, True, action_button)
 
-    def navigate_continuously_arrows_extra(target_text: str, highlight_image: str) -> None:
+    def navigate_continuously_arrows_extra(target_text: str, highlight_image: str, action_button: str = None) -> None:
         """Start continuous navigation using arrow keys with extra step"""
-        actions.user.start_continuous_navigation(target_text, highlight_image, False, None, True)
+        actions.user.navigate_continuously(target_text, highlight_image, False, None, True, action_button)
 
 
 
-    def navigate_to_word_wasd(word: str, highlight_image: str = "chained_hand.png", max_steps: int = None) -> None:
-        """Navigate to any word found via OCR using WASD without extra step"""
+    def navigate_to_word(word: str, highlight_image: str = "chained_hand.png", use_wasd: bool = True, max_steps: int = None, action_button: str = None, use_configured_action: bool = False) -> None:
+        """Navigate to any word found via OCR with configurable input method and action"""
         # Convert word to proper case for OCR matching
         target_text = word.capitalize()
-        print(f"Navigating to word: '{target_text}' using configurable navigation system")
-        actions.user.navigate_continuously_wasd(target_text, highlight_image)
+        
+        # Use configured action button if requested
+        if use_configured_action:
+            action_button = settings.get("user.game_action_button")
+        
+        # Print appropriate message
+        if action_button:
+            print(f"Navigating to word: '{target_text}' and selecting with '{action_button}'")
+        else:
+            print(f"Navigating to word: '{target_text}' using configurable navigation system")
+            
+        actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button)
+
+    # Backwards compatibility wrappers
+    def navigate_to_word_wasd(word: str, highlight_image: str = "chained_hand.png", max_steps: int = None, action_button: str = None) -> None:
+        """Navigate to any word found via OCR using WASD, optionally pressing action button when reached"""
+        actions.user.navigate_to_word(word, highlight_image, True, max_steps, action_button, False)
+
+    def navigate_to_word_wasd_with_action(word: str, highlight_image: str = "chained_hand.png") -> None:
+        """Navigate to any word found via OCR using WASD and press the configured action button"""
+        actions.user.navigate_to_word(word, highlight_image, True, None, None, True)
+
 
     def test_continuous_navigation(target_text: str, highlight_image: str, max_steps: int = 3, use_wasd: bool = False, countdown: int = 0) -> None:
         """Test continuous navigation with limited steps for safety"""
         if countdown > 0:
             print(f"Starting navigation to '{target_text}' in {countdown} seconds...")
             actions.sleep(f"{countdown}s")
-        actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps)
+        actions.user.navigate_continuously(target_text, highlight_image, use_wasd, max_steps)
