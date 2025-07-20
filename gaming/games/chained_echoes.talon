@@ -4,11 +4,14 @@ app: moonlight
 -
 
 settings():
-    #key_hold = 30
     user.super_click_duration = 0.8
     user.travel_distance = 1
-    user.navigation_mode = "vertical"
+    user.navigation_mode = "unified"
     user.game_action_button = "space" 
+    user.highlight_proximity_x = 100
+    user.highlight_proximity_y = 100
+    user.grid_column_threshold = 500
+    user.grid_row_threshold = 40
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -28,7 +31,7 @@ parrot(kiss):
     user.eyebrow_toggle()
 
 # Movement speed controls for exploration
-^walk$: user.set_global_variable("repeat_button_speed", 750)
+^walk$: user.set_global_variable("repeat_button_speed", 800)
 ^jog$: user.set_global_variable("repeat_button_speed", 500)
 ^sprint$: user.set_global_variable("repeat_button_speed", 250)
 ^tiptoe$: user.set_global_variable("repeat_button_speed", 1000)
@@ -54,28 +57,6 @@ parrot(kiss):
 ^guard$: key("g")
 ^defend$: key("g")
 
-# Flee from battle
-^run$: key("r")
-^escape$: key("r")
-^flee$: key("r")
-
-# Target selection in combat
-^target next$: key("right")
-^target previous$: key("left")
-^next target$: key("right")
-^previous target$: key("left")
-
-# Party member selection (F1-F4 for 4-person party)
-^party one$: key("f1")
-^party two$: key("f2")
-^party three$: key("f3")
-^party four$: key("f4")
-
-^first$: key("f1")
-^second$: key("f2")
-^third$: key("f3")
-^fourth$: key("f4")
-
 # Automated dialogue advancement with different speeds
 ^tutorial$: user.set_repeat_button("space", 5)
 ^dialogue$: user.set_repeat_button("space", 2.5)
@@ -95,6 +76,18 @@ parrot(kiss):
 ^double$: user.press_key_x_times("space", 2, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
-^go <user.word>$: user.navigate_to_word_wasd_with_action(word)
+^go <user.word>$: user.navigate_to_word_wasd_with_action(word, "chained_battle_border.png")
 
 ^quack: user.press_key_x_times("escape", 4, 2)
+
+^{user.wasd_arrows} <number>$: 
+    user.press_key_x_times(user.wasd_arrows, number, 0.5)
+
+# Debug commands for grid navigation
+^test grid$: user.test_grid_analysis()
+^test nav <user.word>$: user.test_grid_navigation(word)
+^debug grid <user.word>$: user.navigate_step_grid(word, "chained_battle_border.png", true, 1, null)
+^find text <user.word>$: user.get_text_coordinates(word)
+^debug step <user.word>$: user.navigate_step(word, "chained_battle_border.png", true, 5, false, "")
+^find cursor$: user.find_template_flexible("chained_battle_border.png")
+^test flexible cursor$: user.find_template_flexible("chained_battle_border.png")
