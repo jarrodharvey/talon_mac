@@ -10,6 +10,7 @@ settings():
     user.game_action_button = "space" 
     user.highlight_proximity_x = 100
     user.highlight_proximity_y = 100
+    user.highlight_image = "chained_battle_border.png"
     user.grid_column_threshold = 500
     user.grid_row_threshold = 40
 # Enable arrow key movement commands
@@ -76,7 +77,7 @@ parrot(kiss):
 ^double$: user.press_key_x_times("space", 2, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
-^go <user.word>$: user.navigate_to_word_wasd_with_action(word, "chained_battle_border.png")
+^go <user.word>$: user.navigate_to_word_wasd_with_action(word)
 
 ^quack: user.press_key_x_times("escape", 4, 2)
 

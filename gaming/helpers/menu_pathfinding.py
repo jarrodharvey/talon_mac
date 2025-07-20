@@ -33,6 +33,13 @@ mod.setting(
 )
 
 mod.setting(
+    "highlight_image", 
+    type=str,
+    default="apple_logo.png",
+    desc="Image file name for the highlight box to track in the menu (e.g., 'apple_logo.png')"
+)
+
+mod.setting(
     "navigation_interval",
     type=int,
     default=500,
@@ -262,9 +269,13 @@ class MenuPathfindingActions:
             actions.user.stop_continuous_navigation()
             return False
 
-    def test_navigate_to_text_with_highlight(target_text: str, highlight_image: str = "apple_logo.png"):
+    def test_navigate_to_text_with_highlight(target_text: str, highlight_image: str = None):
         """Test function: Navigate using coordinates of text vs highlight image"""
         try:
+            # Use configured highlight image if none provided
+            if highlight_image is None:
+                highlight_image = settings.get("user.highlight_image")
+            
             print(f"Looking for text: {target_text}")
             
             # Get coordinates of highlight image using existing function
@@ -912,8 +923,11 @@ class MenuPathfindingActions:
 
 
 
-    def navigate_to_word(word: str, highlight_image: str = "chained_hand.png", use_wasd: bool = True, max_steps: int = None, action_button: str = None, use_configured_action: bool = False) -> None:
+    def navigate_to_word(word: str, use_wasd: bool = True, max_steps: int = None, action_button: str = None, use_configured_action: bool = False) -> None:
         """Navigate to any word found via OCR with configurable input method and action"""
+        # Always use configured highlight image from settings
+        highlight_image = settings.get("user.highlight_image")
+            
         # Convert word to proper case for OCR matching
         target_text = word.capitalize()
         
@@ -930,13 +944,13 @@ class MenuPathfindingActions:
         actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button)
 
     # Backwards compatibility wrappers
-    def navigate_to_word_wasd(word: str, highlight_image: str = "chained_hand.png", max_steps: int = None, action_button: str = None) -> None:
+    def navigate_to_word_wasd(word: str, max_steps: int = None, action_button: str = None) -> None:
         """Navigate to any word found via OCR using WASD, optionally pressing action button when reached"""
-        actions.user.navigate_to_word(word, highlight_image, True, max_steps, action_button, False)
+        actions.user.navigate_to_word(word, True, max_steps, action_button, False)
 
-    def navigate_to_word_wasd_with_action(word: str, highlight_image: str = "chained_hand.png") -> None:
+    def navigate_to_word_wasd_with_action(word: str) -> None:
         """Navigate to any word found via OCR using WASD and press the configured action button"""
-        actions.user.navigate_to_word(word, highlight_image, True, None, None, True)
+        actions.user.navigate_to_word(word, True, None, None, True)
 
 
     def test_continuous_navigation(target_text: str, highlight_image: str, max_steps: int = 3, use_wasd: bool = False, countdown: int = 0) -> None:
@@ -956,7 +970,7 @@ class MenuPathfindingActions:
         else:
             print("No grid structure detected")
 
-    def test_grid_navigation(target_text: str, highlight_image: str = "chained_battle_border.png", max_steps: int = 5) -> None:
+    def test_grid_navigation(target_text: str, highlight_image: str = None, max_steps: int = 5) -> None:
         """Test grid navigation with safety limits"""
         print(f"Testing grid navigation to '{target_text}' with max {max_steps} steps")
         actions.user.navigate_step_grid(target_text, highlight_image, True, max_steps, None)
