@@ -38,6 +38,7 @@ mod.tag("wasd_directions", "Cardinal directions")
 mod.tag("wasd_directions_3d", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
+mod.tag("ocr_pathfinding_button", "Used for holding down a button that enables pathfinding navigation to dictated text")
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
@@ -84,6 +85,13 @@ mod.setting(
     type=int,
     default=0.5,
     desc="Duration of a super click"
+)
+
+mod.setting(
+    "uses_pathfinding",
+    type=bool,
+    default=False,
+    desc="Use pathfinding navigation instead of mouse clicking for OCR button"
 )
 
 @mod.scope
@@ -361,14 +369,23 @@ class Actions:
         else:
             print("No need for exercise reminder today.")
     def enable_ocr_click_button():
-        """Enables the OCR click button"""
+        """Enables OCR click or pathfinding based on game settings"""
         actions.user.game_stop()
         actions.user.disconnect_ocr_eye_tracker()
-        ctx.tags = ["user.ocr_click_button"]
+        
+        # Check if current game uses pathfinding instead of mouse clicking
+        if settings.get("user.uses_pathfinding"):
+            ctx.tags = ["user.ocr_pathfinding_button"]
+            print("Enabled pathfinding mode for OCR navigation")
+        else:
+            ctx.tags = ["user.ocr_click_button"]
+            print("Enabled mouse click mode for OCR navigation")
+    
     def disable_ocr_click_button():
-        """Disables the OCR click button"""
+        """Disables both OCR click and pathfinding modes"""
         actions.user.connect_ocr_eye_tracker()
         ctx.tags = []
+        print("Disabled OCR navigation mode")
     def game_click_spot(phrase: str):
         """Clicks a spot on the screen"""
         actions.user.move_to_spot(phrase)

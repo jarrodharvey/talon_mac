@@ -74,6 +74,13 @@ mod.setting(
     desc="Vertical distance threshold to determine if two items are in the same row"
 )
 
+mod.setting(
+    "uses_wasd",
+    type=bool,
+    default=True,
+    desc="Use WASD keys for navigation instead of arrow keys"
+)
+
 @mod.action_class
 class MenuPathfindingActions:
     def analyze_grid_structure() -> dict:
@@ -923,13 +930,20 @@ class MenuPathfindingActions:
 
 
 
-    def navigate_to_word(word: str, use_wasd: bool = True, max_steps: int = None, action_button: str = None, use_configured_action: bool = False) -> None:
+    def navigate_to_word(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False) -> None:
         """Navigate to any word found via OCR with configurable input method and action"""
         # Always use configured highlight image from settings
         highlight_image = settings.get("user.highlight_image")
+        
+        # Use configured input method if not specified
+        if use_wasd is None:
+            use_wasd = settings.get("user.uses_wasd")
             
-        # Convert word to proper case for OCR matching
-        target_text = word.capitalize()
+        # Convert word to proper case for OCR matching - handle TimestampedText objects
+        if hasattr(word, 'text'):
+            target_text = word.text.capitalize()
+        else:
+            target_text = str(word).capitalize()
         
         # Use configured action button if requested
         if use_configured_action:
@@ -942,6 +956,10 @@ class MenuPathfindingActions:
             print(f"Navigating to word: '{target_text}' using configurable navigation system")
             
         actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button)
+
+    def navigate_to_word_with_action(word: str) -> None:
+        """Navigate to word using configured input method and press configured action button"""
+        actions.user.navigate_to_word(word, None, None, None, True)
 
     # Backwards compatibility wrappers
     def navigate_to_word_wasd(word: str, max_steps: int = None, action_button: str = None) -> None:

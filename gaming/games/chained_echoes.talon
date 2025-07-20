@@ -13,6 +13,8 @@ settings():
     user.highlight_image = "chained_battle_border.png"
     user.grid_column_threshold = 500
     user.grid_row_threshold = 40
+    user.uses_pathfinding = true
+    user.uses_wasd = true
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -77,7 +79,7 @@ parrot(kiss):
 ^double$: user.press_key_x_times("space", 2, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
-^go <user.word>$: user.navigate_to_word_wasd_with_action(word)
+^go <user.word>$: user.navigate_to_word_with_action(word)
 
 ^quack: user.press_key_x_times("escape", 4, 2)
 
