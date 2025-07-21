@@ -5,6 +5,8 @@ Designed for games that don't support mouse input but have keyboard-based menu n
 
 from talon import Module, actions, app, cron, settings
 import os
+import json
+from talon.types import Rect as TalonRect
 
 mod = Module()
 
@@ -16,19 +18,22 @@ navigation_job = None
 navigation_steps_taken = 0
 last_direction_pressed = None
 cursor_position_history = []  # Track cursor positions to detect loops
+stable_position_history = []  # Track only stable/settled cursor positions
+position_timing = {}  # Track when cursor first arrived at each position
+current_target_width = 0  # Width of current target text for victory line calculation
 
 # Settings for menu navigation
 mod.setting(
     "highlight_proximity_x",
     type=int,
-    default=75,
+    default=100,
     desc="Horizontal distance in pixels to stop navigation when highlight is close to target text"
 )
 
 mod.setting(
     "highlight_proximity_y", 
     type=int,
-    default=55,
+    default=80,
     desc="Vertical distance in pixels to stop navigation when highlight is close to target text"
 )
 
@@ -80,6 +85,21 @@ mod.setting(
     default=True,
     desc="Use WASD keys for navigation instead of arrow keys"
 )
+
+mod.setting(
+    "position_stability_threshold",
+    type=int,
+    default=1400,
+    desc="Time in milliseconds cursor must remain at position to be considered stable/settled (should be 2x navigation interval)"
+)
+
+mod.setting(
+    "cursor_directory",
+    type=str,
+    default="",
+    desc="Name of cursor directory under cursors/ containing game-specific cursor templates (e.g., 'chained_echoes')"
+)
+
 
 @mod.action_class
 class MenuPathfindingActions:
@@ -385,17 +405,62 @@ class MenuPathfindingActions:
                 print(f"Got OCR contents with {len(contents.result.lines)} lines")
                 
                 # Search for the target text
+                # Find ALL matching text instances, then pick the best one
+                text_matches = []
                 for line_idx, line in enumerate(contents.result.lines):
                     for word_idx, word in enumerate(line.words):
                         print(f"Line {line_idx}, Word {word_idx}: '{word.text}' at ({word.left}, {word.top})")
                         if target_text.lower() in word.text.lower():
-                            coords = (word.left + word.width//2, word.top + word.height//2)
-                            print(f"Found '{target_text}' at coordinates: {coords}")
-                            print(f"Word bounds: left={word.left}, top={word.top}, width={word.width}, height={word.height}")
+                            coords = (word.left, word.top + word.height//2)
+                            text_matches.append({
+                                'coords': coords,
+                                'text': word.text,
+                                'width': word.width,
+                                'line': line_idx,
+                                'word': word_idx
+                            })
+                
+                if text_matches:
+                    global current_target_width
+                    
+                    if len(text_matches) == 1:
+                        # Single match - use it
+                        match = text_matches[0]
+                        print(f"Found single '{target_text}' at center coordinates: {match['coords']}")
+                        current_target_width = match['width']
+                        actions.user.connect_ocr_eye_tracker()
+                        return match['coords']
+                    else:
+                        # Multiple matches - pick closest to current cursor
+                        print(f"Found {len(text_matches)} instances of '{target_text}':")
+                        for i, match in enumerate(text_matches):
+                            print(f"  {i+1}. '{match['text']}' at {match['coords']} (Line {match['line']}, Word {match['word']})")
+                        
+                        # Get current cursor position to choose closest text
+                        cursor_pos = actions.user.find_cursor_flexible()
+                        if cursor_pos:
+                            best_match = None
+                            min_distance = float('inf')
                             
-                            # Reconnect eye tracker
+                            for match in text_matches:
+                                distance = actions.user.calculate_distance(cursor_pos, match['coords'])
+                                print(f"  Distance from cursor {cursor_pos} to '{match['text']}' at {match['coords']}: {distance:.1f}px")
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    best_match = match
+                            
+                            if best_match:
+                                print(f"Selected closest '{target_text}' at {best_match['coords']} (distance: {min_distance:.1f}px)")
+                                current_target_width = best_match['width']
+                                actions.user.connect_ocr_eye_tracker()
+                                return best_match['coords']
+                        else:
+                            # No cursor found, use first match
+                            match = text_matches[0]
+                            print(f"No cursor found, using first '{target_text}' at {match['coords']}")
+                            current_target_width = match['width']
                             actions.user.connect_ocr_eye_tracker()
-                            return coords
+                            return match['coords']
                 
                 print(f"Text '{target_text}' not found in OCR results")
             else:
@@ -487,10 +552,105 @@ class MenuPathfindingActions:
         """Navigate using arrow keys - convenience function"""
         return actions.user.navigate_to_text_with_highlight(target_text, highlight_image, False)
 
+    def find_cursor_flexible(cursor_directory: str = None, thresholds: list = None, search_region: tuple = None) -> tuple:
+        """Find cursor using game-specific cursor directory with multiple cursor variations"""
+        if thresholds is None:
+            thresholds = [0.9, 0.85]
+            
+        # Determine cursor directory and path
+        if not cursor_directory:
+            cursor_directory = settings.get("user.cursor_directory")
+            
+        if cursor_directory:
+            # Use game-specific cursor directory
+            cursors_base_path = f"/Users/jarrod/.talon/user/jarrod/gaming/cursors/{cursor_directory}/"
+            
+            if not os.path.exists(cursors_base_path):
+                print(f"ERROR: Cursor directory not found: {cursors_base_path}")
+                return None
+                
+            # Get all image files in the cursor directory
+            cursor_files = []
+            for file in os.listdir(cursors_base_path):
+                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    cursor_files.append(file)
+                    
+            if not cursor_files:
+                print(f"ERROR: No cursor images found in {cursors_base_path}")
+                return None
+                
+            print(f"Trying {len(cursor_files)} cursor variations from {cursor_directory}/")
+            
+            # Just return first successful cursor match for now - revert to simple approach
+            for cursor_file in cursor_files:
+                cursor_path = cursors_base_path + cursor_file
+                print(f"Trying cursor: {cursor_file}")
+                
+                # Try each threshold for this cursor
+                for threshold in thresholds:
+                    try:
+                        print(f"  Trying threshold {threshold}")
+                        
+                        import talon.experimental.locate as locate
+                        matches = locate.locate(cursor_path, threshold=threshold)
+                        
+                        if matches:
+                            if len(matches) == 1:
+                                # Single match - best case
+                                match = matches[0]
+                                center_x = match.x + match.width // 2
+                                # Use bottom of middle third to prevent false proximity when cursor overlaps target
+                                center_y = match.y + 2 * match.height // 3
+                                
+                                if search_region:
+                                    left_x, top_y, right_x, bottom_y = search_region
+                                    if left_x <= center_x <= right_x and top_y <= center_y <= bottom_y:
+                                        result = (center_x, center_y)
+                                        print(f"SUCCESS: Found single cursor using {cursor_file} at {result}")
+                                        return result
+                                else:
+                                    result = (center_x, center_y)
+                                    print(f"SUCCESS: Found single cursor using {cursor_file} at {result}")
+                                    return result
+                            else:
+                                # Multiple matches - take first one and warn
+                                print(f"  WARNING: Multiple matches ({len(matches)}) for {cursor_file}, using first")
+                                match = matches[0]
+                                center_x = match.x + match.width // 2
+                                # Use bottom of middle third to prevent false proximity when cursor overlaps target
+                                center_y = match.y + 2 * match.height // 3
+                                
+                                if search_region:
+                                    left_x, top_y, right_x, bottom_y = search_region
+                                    if left_x <= center_x <= right_x and top_y <= center_y <= bottom_y:
+                                        result = (center_x, center_y)
+                                        print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(matches)})")
+                                        return result
+                                else:
+                                    result = (center_x, center_y)
+                                    print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(matches)})")
+                                    return result
+                                
+                    except Exception as e:
+                        print(f"  Error with {cursor_file} at threshold {threshold}: {e}")
+                        continue
+                    
+            print(f"No cursor found using any variation in {cursor_directory}/")
+            return None
+        else:
+            # Fallback to original highlight_image setting
+            highlight_image = settings.get("user.highlight_image")
+            if highlight_image:
+                print(f"No cursor directory set, using highlight_image: {highlight_image}")
+                return actions.user.find_template_flexible(highlight_image, thresholds, search_region)
+            else:
+                print("ERROR: No cursor directory or highlight_image configured")
+                return None
+
     def find_template_flexible(image_name: str, thresholds: list = None, search_region: tuple = None) -> tuple:
         """Find template using flexible matching with multiple thresholds and optional region limiting"""
         if thresholds is None:
-            thresholds = [0.7, 0.75, 0.8, 0.85, 0.9]
+            thresholds = [0.9]  # Use high threshold for cursor variations
             
         image_path = f"{images_to_click_location}{image_name}"
         
@@ -504,11 +664,22 @@ class MenuPathfindingActions:
                 matches = locate.locate(image_path, threshold=threshold)
                     
                 if matches:
+                    # Multi-cursor detection warning
+                    if len(matches) > 1:
+                        print(f"WARNING: Multiple cursor matches detected ({len(matches)} matches) at threshold {threshold}")
+                        print(f"This may indicate template matching issues that need investigation!")
+                        for i, match in enumerate(matches):
+                            center_x = match.x + match.width // 2
+                            # Use bottom of middle third to prevent false proximity when cursor overlaps target
+                            center_y = match.y + 2 * match.height // 3
+                            print(f"  Cursor match {i+1}: ({center_x}, {center_y})")
+                    
                     # Filter matches by region if specified (left_x, top_y, right_x, bottom_y)
                     valid_matches = []
                     for match in matches:
                         center_x = match.x + match.width // 2
-                        center_y = match.y + match.height // 2
+                        # Use bottom of middle third to prevent false proximity when cursor overlaps target
+                        center_y = match.y + 2 * match.height // 3
                         
                         if search_region:
                             left_x, top_y, right_x, bottom_y = search_region
@@ -522,6 +693,9 @@ class MenuPathfindingActions:
                             print(f"Found template at ({center_x}, {center_y}) with threshold {threshold}")
                     
                     if valid_matches:
+                        if len(valid_matches) > 1:
+                            print(f"WARNING: Multiple valid cursor matches ({len(valid_matches)}) after region filtering!")
+                            print(f"Selecting first match: {valid_matches[0]}")
                         return valid_matches[0]  # Return first valid match
                         
             except Exception as e:
@@ -543,55 +717,139 @@ class MenuPathfindingActions:
         y_diff = pos1[1] - pos2[1]
         return (x_diff ** 2 + y_diff ** 2) ** 0.5
 
-    def find_coordinate_clusters(positions: list, cluster_radius: int = 20) -> list:
-        """Group coordinates into clusters based on proximity"""
-        if not positions:
-            return []
-            
-        clusters = []
-        for pos in positions:
-            # Find if this position belongs to an existing cluster
-            placed = False
-            for cluster in clusters:
-                # Check if within cluster radius of any position in cluster
-                for cluster_pos in cluster:
-                    distance = ((pos[0] - cluster_pos[0]) ** 2 + (pos[1] - cluster_pos[1]) ** 2) ** 0.5
-                    if distance <= cluster_radius:
-                        cluster.append(pos)
-                        placed = True
-                        break
-                if placed:
-                    break
-                    
-            if not placed:
-                clusters.append([pos])
+    def check_cursor_intersects_victory_line(cursor_pos: tuple, text_coords: tuple, text_width: float, cursor_size: tuple = (16, 54), left_extension: int = 50) -> bool:
+        """Check if horizontal victory line extending left from text intersects with cursor rectangle"""
+        cursor_x, cursor_y = cursor_pos
+        cursor_width, cursor_height = cursor_size
+        text_center_x, text_center_y = text_coords
         
-        print(f"Found {len(clusters)} coordinate clusters from {len(positions)} positions")
-        for i, cluster in enumerate(clusters):
-            centroid_x = sum(p[0] for p in cluster) / len(cluster)
-            centroid_y = sum(p[1] for p in cluster) / len(cluster)
-            print(f"Cluster {i}: {len(cluster)} positions, centroid: ({centroid_x:.1f}, {centroid_y:.1f})")
-            
-        return clusters
+        # Estimate text left edge (assuming text_coords is center)
+        text_left = text_center_x - text_width // 2
+        
+        # Calculate cursor rectangle bounds
+        cursor_left = cursor_x - cursor_width // 2
+        cursor_right = cursor_x + cursor_width // 2  
+        cursor_top = cursor_y - cursor_height // 2
+        cursor_bottom = cursor_y + cursor_height // 2
+        
+        # Victory line coordinates
+        line_y = text_center_y
+        line_x_start = text_left - left_extension
+        line_x_end = text_left
+        
+        # Check if horizontal line intersects cursor rectangle
+        line_intersects_horizontally = (line_x_start <= cursor_right and line_x_end >= cursor_left)
+        line_intersects_vertically = (cursor_top <= line_y <= cursor_bottom)
+        
+        victory = line_intersects_horizontally and line_intersects_vertically
+        
+        print(f"Victory line check: Line Y={line_y}, X=[{line_x_start}, {line_x_end}]")
+        print(f"Cursor bounds: X=[{cursor_left}, {cursor_right}], Y=[{cursor_top}, {cursor_bottom}]")
+        print(f"Intersects horizontally: {line_intersects_horizontally}, vertically: {line_intersects_vertically}")
+        print(f"Victory: {victory}")
+        
+        return victory
 
-    def detect_repeating_pattern(position_history: list, tolerance: int = 25) -> tuple:
-        """Detect repeating patterns of any length in position history"""
-        if len(position_history) < 4:
+    def add_position_if_stable(current_pos: tuple) -> None:
+        """Add position to stable history only if cursor has been there long enough"""
+        global stable_position_history, position_timing
+        import time
+        
+        current_time = time.time() * 1000  # Convert to milliseconds
+        stability_threshold = settings.get("user.position_stability_threshold")
+        
+        # Round position to nearest 5 pixels to handle minor template matching variations
+        rounded_pos = (round(current_pos[0] / 5) * 5, round(current_pos[1] / 5) * 5)
+        
+        if rounded_pos in position_timing:
+            # Check if position has been stable long enough
+            time_at_position = current_time - position_timing[rounded_pos]
+            if time_at_position >= stability_threshold:
+                # Position is stable - add to stable history if not already there
+                if not stable_position_history or stable_position_history[-1] != current_pos:
+                    stable_position_history.append(current_pos)
+                    print(f"Added stable position: {current_pos} (stable for {time_at_position:.0f}ms)")
+                    
+                    # Keep stable history manageable (last 8 stable positions)
+                    if len(stable_position_history) > 8:
+                        stable_position_history.pop(0)
+        else:
+            # First time at this position - start timing
+            position_timing[rounded_pos] = current_time
+            
+            # Clean up old timing entries to prevent memory buildup
+            if len(position_timing) > 20:
+                oldest_key = min(position_timing.keys(), key=lambda k: position_timing[k])
+                del position_timing[oldest_key]
+
+    def find_closest_stable_position_to_target(target_coords: tuple) -> tuple:
+        """Find the stable position from history that is closest to the target coordinates"""
+        global stable_position_history
+        
+        if not stable_position_history:
+            print("No stable positions recorded yet")
+            return None
+            
+        closest_pos = None
+        min_distance = float('inf')
+        
+        print(f"Checking {len(stable_position_history)} stable positions against target {target_coords}")
+        for pos in stable_position_history:
+            distance = actions.user.calculate_distance(pos, target_coords)
+            print(f"  Stable position {pos}: distance {distance:.1f}px")
+            if distance < min_distance:
+                min_distance = distance
+                closest_pos = pos
+        
+        print(f"Found closest stable position to target: {closest_pos} (distance: {min_distance:.1f}px)")
+        return closest_pos
+
+    def find_closest_position_to_target(position_history: list, target_coords: tuple) -> tuple:
+        """Find the position from history that is closest to the target coordinates"""
+        if not position_history:
+            return None
+            
+        closest_pos = None
+        min_distance = float('inf')
+        
+        for pos in position_history:
+            distance = actions.user.calculate_distance(pos, target_coords)
+            if distance < min_distance:
+                min_distance = distance
+                closest_pos = pos
+        
+        print(f"Found closest position to target {target_coords}: {closest_pos} (distance: {min_distance:.1f}px)")
+        return closest_pos
+
+    def detect_repeating_pattern(position_history: list, tolerance: int = 25, required_repetitions: int = 2) -> tuple:
+        """Detect repeating patterns that occur multiple times in position history"""
+        if len(position_history) < 4:  # Need at least 4 positions for meaningful pattern detection
             return False, []
         
-        # Try different pattern lengths from 2 up to half the history size
-        for pattern_length in range(2, len(position_history) // 2 + 1):
+        # Try different pattern lengths from 2 up to 1/3 of history size
+        for pattern_length in range(2, len(position_history) // 3 + 1):
             # Get the most recent pattern
             recent_pattern = position_history[-pattern_length:]
             
-            # Look backwards through history to find this exact pattern
-            for start_idx in range(len(position_history) - pattern_length * 2, -1, -1):
+            # Count how many times this pattern appears in the history
+            repetition_count = 0
+            
+            # Look backwards through history to count pattern repetitions
+            for start_idx in range(len(position_history) - pattern_length, -1, -pattern_length):
+                if start_idx < 0:
+                    break
                 candidate_pattern = position_history[start_idx:start_idx + pattern_length]
                 
-                if actions.user.patterns_match(recent_pattern, candidate_pattern, tolerance):
-                    print(f"PATTERN DETECTED: Length {pattern_length} pattern repeating")
-                    print(f"Pattern: {' -> '.join([f'({p[0]:.0f},{p[1]:.0f})' for p in recent_pattern])}")
-                    return True, recent_pattern
+                if len(candidate_pattern) == pattern_length and actions.user.patterns_match(recent_pattern, candidate_pattern, tolerance):
+                    repetition_count += 1
+                else:
+                    break  # Stop if pattern doesn't match (no longer continuous repetition)
+            
+            # Only trigger if pattern repeats the required number of times
+            if repetition_count >= required_repetitions:
+                print(f"PATTERN DETECTED: Length {pattern_length} pattern repeating {repetition_count} times")
+                print(f"Pattern: {' -> '.join([f'({p[0]:.0f},{p[1]:.0f})' for p in recent_pattern])}")
+                return True, recent_pattern
         
         return False, []
 
@@ -606,31 +864,6 @@ class MenuPathfindingActions:
                 return False
         return True
 
-    def find_closest_cluster_to_target(clusters: list, target_coords: tuple) -> tuple:
-        """Find the cluster whose centroid is closest to the target"""
-        if not clusters:
-            return None
-            
-        closest_centroid = None
-        min_distance = float('inf')
-        
-        for cluster in clusters:
-            # Calculate cluster centroid
-            centroid_x = sum(p[0] for p in cluster) / len(cluster)
-            centroid_y = sum(p[1] for p in cluster) / len(cluster)
-            centroid = (centroid_x, centroid_y)
-            
-            # Calculate distance to target
-            distance = ((centroid[0] - target_coords[0]) ** 2 + (centroid[1] - target_coords[1]) ** 2) ** 0.5
-            
-            print(f"Cluster centroid {centroid} distance to target {target_coords}: {distance:.1f}px")
-            
-            if distance < min_distance:
-                min_distance = distance
-                closest_centroid = centroid
-        
-        print(f"Selected closest centroid: {closest_centroid} (distance: {min_distance:.1f}px)")
-        return closest_centroid
 
     def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False, action_button: str = None) -> bool:
         """Single navigation step - check proximity and move if needed"""
@@ -651,8 +884,8 @@ class MenuPathfindingActions:
                 actions.user.stop_continuous_navigation()
                 return False
 
-            # Try flexible template matching first, fall back to standard method
-            highlight_center = actions.user.find_template_flexible(highlight_image)
+            # Try flexible cursor detection first (game-specific cursors), fall back to standard method
+            highlight_center = actions.user.find_cursor_flexible()
             if not highlight_center:
                 # Fallback to original method
                 highlight_coords = actions.user.mouse_helper_find_template_relative(
@@ -673,6 +906,9 @@ class MenuPathfindingActions:
             cursor_position_history.append(highlight_center)
             if len(cursor_position_history) > 12:  # Keep last 12 positions for better pattern detection
                 cursor_position_history.pop(0)
+            
+            # Track stable positions for better tiebreaker logic
+            actions.user.add_position_if_stable(highlight_center)
                 
             # Enhanced loop detection with tiebreaker mode - detect repeating patterns of any length
             if len(cursor_position_history) >= 4:
@@ -682,35 +918,37 @@ class MenuPathfindingActions:
                 if pattern_detected:
                     print(f"TIEBREAKER MODE: Repeating pattern detected!")
                     print(f"Pattern: {' -> '.join([f'({p[0]:.0f},{p[1]:.0f})' for p in detected_pattern])}")
-                    print(f"Analyzing coordinate clusters to find closest reachable position...")
+                    print(f"Finding closest stable position to target...")
                     
-                    # Find coordinate clusters from position history
-                    clusters = actions.user.find_coordinate_clusters(cursor_position_history, 25)
+                    # Find closest stable position from history to target
+                    closest_position = actions.user.find_closest_stable_position_to_target(text_coords)
                     
-                    if clusters:
-                        # Find cluster closest to target
-                        closest_centroid = actions.user.find_closest_cluster_to_target(clusters, text_coords)
+                    # Fallback to regular position history if no stable positions yet
+                    if not closest_position:
+                        print("No stable positions available, falling back to regular position history")
+                        closest_position = actions.user.find_closest_position_to_target(cursor_position_history, text_coords)
+                    
+                    if closest_position:
+                        # Check if we're already at the closest position
+                        distance_to_closest = actions.user.calculate_distance(highlight_center, closest_position)
                         
-                        if closest_centroid:
-                            # Check if we're already at the closest position
-                            distance_to_closest = ((highlight_center[0] - closest_centroid[0]) ** 2 + (highlight_center[1] - closest_centroid[1]) ** 2) ** 0.5
-                            
-                            if distance_to_closest <= 30:  # Within 30px of closest position
-                                print(f"TIEBREAKER SUCCESS: At closest reachable position to target!")
-                                print(f"Current: {highlight_center}, Closest centroid: {closest_centroid}, Target: {text_coords}")
-                                if action_button:
-                                    print(f"Pressing action button: {action_button}")
-                                    actions.key(action_button)
-                                actions.user.stop_continuous_navigation()
-                                return True
-                            else:
-                                print(f"Navigating to closest centroid: {closest_centroid}")
-                                # Navigate toward the closest centroid instead of original target
-                                text_coords = closest_centroid  # Override target for this step
-                    
-                    # If no clusters found, fall back to original behavior
-                    if not clusters:
-                        print(f"No clusters found, stopping navigation")
+                        if distance_to_closest <= 30:  # Within 30px of closest position
+                            print(f"TIEBREAKER SUCCESS: At closest reachable position to target!")
+                            print(f"Current: {highlight_center}, Closest position: {closest_position}, Target: {text_coords}")
+                            if action_button:
+                                print(f"Pressing action button: {action_button}")
+                                actions.key(action_button)
+                            actions.user.stop_continuous_navigation()
+                            return True
+                        else:
+                            print(f"Navigating to closest position: {closest_position}")
+                            # Navigate toward the closest position instead of original target
+                            text_coords = closest_position  # Override target for this step
+                            # Override navigation mode to unified for tiebreaker
+                            navigation_mode = "unified"
+                            print(f"TIEBREAKER: Overriding navigation mode to 'unified' to reach closest position")
+                    else:
+                        print(f"No position history found, stopping navigation")
                         actions.user.stop_continuous_navigation()
                         return False
             
@@ -718,16 +956,20 @@ class MenuPathfindingActions:
             x_diff = text_coords[0] - highlight_center[0]
             y_diff = text_coords[1] - highlight_center[1]
             
+            # Get configurable proximity settings for alignment detection
+            proximity_x = settings.get("user.highlight_proximity_x")
+            proximity_y = settings.get("user.highlight_proximity_y")
+            
             # Alignment-based mode switching: lock into directional mode when aligned
-            alignment_threshold = 60  # pixels - how close is "aligned"
+            # Use proximity settings instead of hardcoded values
             
             # Check for vertical alignment (same column)
-            if abs(x_diff) <= alignment_threshold:
-                print(f"Vertical alignment detected (X diff: {x_diff:.1f} <= {alignment_threshold}) - locking to vertical mode")
+            if abs(x_diff) <= proximity_x:
+                print(f"Vertical alignment detected (X diff: {x_diff:.1f} <= {proximity_x}) - locking to vertical mode")
                 navigation_mode = "vertical"
             # Check for horizontal alignment (same row) 
-            elif abs(y_diff) <= alignment_threshold:
-                print(f"Horizontal alignment detected (Y diff: {y_diff:.1f} <= {alignment_threshold}) - locking to horizontal mode")
+            elif abs(y_diff) <= proximity_y:
+                print(f"Horizontal alignment detected (Y diff: {y_diff:.1f} <= {proximity_y}) - locking to horizontal mode")
                 navigation_mode = "horizontal"
             # Otherwise use configured mode
             else:
@@ -743,29 +985,20 @@ class MenuPathfindingActions:
             print(f"Y diff: {y_diff:.1f} (positive = target is DOWN)")
             print(f"Selected mode: {navigation_mode}")
             
+            # proximity_x and proximity_y already retrieved above for alignment detection
+            
             if navigation_mode == "vertical":
-                # Vertical mode - tight Y check only
-                is_on_target = abs(y_diff) <= 25
-                print(f"Vertical mode - Y close: {abs(y_diff) <= 25}, On target: {is_on_target}")
+                # Vertical mode - configurable Y check only
+                is_on_target = abs(y_diff) <= proximity_y
+                print(f"Vertical mode - Y close: {abs(y_diff)} <= {proximity_y}, On target: {is_on_target}")
             elif navigation_mode == "horizontal":
-                # Horizontal mode - tight X check only  
-                is_on_target = abs(x_diff) <= 25
-                print(f"Horizontal mode - X close: {abs(x_diff) <= 25}, On target: {is_on_target}")
+                # Horizontal mode - configurable X check only  
+                is_on_target = abs(x_diff) <= proximity_x
+                print(f"Horizontal mode - X close: {abs(x_diff)} <= {proximity_x}, On target: {is_on_target}")
             else:
-                # Unified mode - both X and Y proximity with cursor-awareness
-                proximity_x = settings.get("user.highlight_proximity_x")
-                proximity_y = settings.get("user.highlight_proximity_y")
-                
-                # Cursor-aware logic: cursor should be to the left of or close to the target text
-                # More lenient if cursor is to the left (negative x_diff), tighter if to the right
-                if x_diff <= 0:  # Cursor is to the left of target (expected)
-                    x_close = abs(x_diff) <= proximity_x
-                else:  # Cursor is to the right of target (unexpected, be more strict)
-                    x_close = abs(x_diff) <= proximity_x * 0.5
-                    
-                y_close = abs(y_diff) <= proximity_y
-                is_on_target = x_close and y_close
-                print(f"Unified mode - X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}, X close: {x_close}, Y close: {y_close}, On target: {is_on_target}")
+                # Unified mode - use configurable X/Y proximity instead of victory line
+                is_on_target = abs(x_diff) <= proximity_x and abs(y_diff) <= proximity_y
+                print(f"Unified mode - X close: {abs(x_diff)} <= {proximity_x}, Y close: {abs(y_diff)} <= {proximity_y}, On target: {is_on_target}")
             
             if is_on_target:
                 if action_button:
@@ -874,7 +1107,7 @@ class MenuPathfindingActions:
 
     def start_continuous_navigation(target_text: str, highlight_image: str, use_wasd: bool = False, max_steps: int = None, extra_step: bool = False, action_button: str = None) -> None:
         """Start continuous navigation with cron job until target reached or game_stop called"""
-        global navigation_job, navigation_steps_taken, last_direction_pressed, cursor_position_history
+        global navigation_job, navigation_steps_taken, last_direction_pressed, cursor_position_history, stable_position_history, position_timing
         
         # Stop any existing navigation
         actions.user.stop_continuous_navigation()
@@ -883,6 +1116,8 @@ class MenuPathfindingActions:
         navigation_steps_taken = 0
         last_direction_pressed = None
         cursor_position_history = []
+        stable_position_history = []
+        position_timing = {}
         
         # Start new navigation job with error handling
         navigation_interval = settings.get("user.navigation_interval")
@@ -957,7 +1192,7 @@ class MenuPathfindingActions:
             
         actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button)
 
-    def navigate_to_word_with_action(word: str) -> None:
+    def navigate_to_word_with_action(word: object):
         """Navigate to word using configured input method and press configured action button"""
         actions.user.navigate_to_word(word, None, None, None, True)
 
@@ -992,3 +1227,266 @@ class MenuPathfindingActions:
         """Test grid navigation with safety limits"""
         print(f"Testing grid navigation to '{target_text}' with max {max_steps} steps")
         actions.user.navigate_step_grid(target_text, highlight_image, True, max_steps, None)
+
+    def debug_all_text_coordinates() -> None:
+        """Debug function to list all text coordinates found via OCR"""
+        print("=== DEBUG: ALL TEXT COORDINATES ===")
+        
+        # Disconnect eye tracker and scan full screen
+        actions.user.disconnect_ocr_eye_tracker()
+        
+        try:
+            # Find OCR controller
+            import sys
+            gaze_ocr_controller = None
+            for module_name, module in sys.modules.items():
+                if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                    gaze_ocr_controller = module.gaze_ocr_controller
+                    break
+            
+            if not gaze_ocr_controller:
+                print("ERROR: Could not find gaze_ocr_controller")
+                return
+                
+            # Get OCR scan
+            print("Performing OCR scan...")
+            gaze_ocr_controller.read_nearby()
+            contents = gaze_ocr_controller.latest_screen_contents()
+            
+            if not contents or not contents.result or not contents.result.lines:
+                print("No OCR results found")
+                return
+                
+            print(f"Found {len(contents.result.lines)} lines of text")
+            print("Format: 'Text' at (center_x, center_y) [left, top, width, height]")
+            print("")
+            
+            # List all text with coordinates
+            for line_idx, line in enumerate(contents.result.lines):
+                for word_idx, word in enumerate(line.words):
+                    # Calculate center coordinates (same as get_text_coordinates)
+                    center_x = word.left + word.width // 2
+                    center_y = word.top + word.height // 2
+                    
+                    print(f"Line {line_idx}, Word {word_idx}: '{word.text}' at ({center_x}, {center_y}) [{word.left}, {word.top}, {word.width}, {word.height}]")
+            
+            print("=== END DEBUG TEXT COORDINATES ===")
+            
+        finally:
+            # Always reconnect eye tracker
+            actions.user.connect_ocr_eye_tracker()
+
+    def debug_cursor_position() -> None:
+        """Debug function to show cursor/highlight position using template matching"""
+        print("=== DEBUG: CURSOR POSITION ===")
+        
+        # Get configured highlight image
+        highlight_image = settings.get("user.highlight_image")
+        image_path = f"{images_to_click_location}{highlight_image}"
+        
+        print(f"Looking for cursor template: {highlight_image}")
+        print(f"Full path: {image_path}")
+        
+        # Check if image file exists
+        if not os.path.exists(image_path):
+            print(f"ERROR: Template image not found at {image_path}")
+            return
+            
+        try:
+            # Try flexible template matching (same as navigation system)
+            flexible_result = actions.user.find_template_flexible(highlight_image)
+            
+            if flexible_result:
+                print(f"Found cursor using flexible template matching:")
+                # find_template_flexible returns a single tuple (center_x, center_y)
+                center_x, center_y = flexible_result
+                print(f"  Flexible match: center ({center_x}, {center_y})")
+                print(f"PRIMARY CURSOR (flexible): ({center_x}, {center_y})")
+            else:
+                print("No cursor matches found with flexible template matching")
+                
+            # Also try direct template matching for comparison
+            print("\nTrying direct mouse_helper_find_template_relative for comparison:")
+            direct_matches = actions.user.mouse_helper_find_template_relative(image_path)
+            
+            if direct_matches:
+                print(f"Found {len(direct_matches)} matches with direct template matching:")
+                for i, match in enumerate(direct_matches):
+                    center_x = match.x + match.width // 2
+                    # Use bottom of middle third to prevent false proximity when cursor overlaps target
+                    center_y = match.y + 2 * match.height // 3
+                    print(f"  Direct match {i}: center ({center_x}, {center_y}) [x={match.x}, y={match.y}, w={match.width}, h={match.height}]")
+            else:
+                print("No matches found with direct template matching")
+                
+        except Exception as e:
+            print(f"ERROR during template matching: {e}")
+            
+        print("=== END DEBUG CURSOR POSITION ===")
+
+    def debug_pathfinding_state() -> None:
+        """Debug function showing both text coordinates and cursor position for pathfinding analysis"""
+        print("=== DEBUG: PATHFINDING STATE ===")
+        
+        # Get configured highlight image
+        highlight_image = settings.get("user.highlight_image")
+        image_path = f"{images_to_click_location}{highlight_image}"
+        
+        print(f"Using cursor template: {highlight_image}")
+        
+        # First get cursor position - try multiple thresholds
+        cursor_coords = None
+        try:
+            # Test different thresholds and show cursor count
+            for threshold in [0.7, 0.8, 0.9]:
+                print(f"Testing threshold {threshold}:")
+                flexible_result = actions.user.find_template_flexible(highlight_image, [threshold])
+                
+                # Also test direct template matching to count total matches  
+                direct_matches = actions.user.mouse_helper_find_template_relative(image_path)
+                if direct_matches:
+                    print(f"  Direct matching found {len(direct_matches)} cursor matches at threshold {threshold}")
+                    for i, match in enumerate(direct_matches[:5]):  # Show first 5
+                        center = (match.x + match.width // 2, match.y + match.height // 2)
+                        print(f"    Match {i+1}: {center}")
+                else:
+                    print(f"  Direct matching found 0 cursor matches at threshold {threshold}")
+                    
+                if flexible_result:
+                    print(f"  Flexible matching selected: {flexible_result}")
+                    if not cursor_coords:  # Use first successful match
+                        cursor_coords = flexible_result
+                        print(f"SELECTED CURSOR POSITION: {cursor_coords} (threshold {threshold})")
+                else:
+                    print(f"  Flexible matching found: None")
+                print("")
+                
+        except Exception as e:
+            print(f"CURSOR POSITION: Error - {e}")
+        
+        print("")
+        
+        # Get all text coordinates  
+        actions.user.disconnect_ocr_eye_tracker()
+        try:
+            import sys
+            gaze_ocr_controller = None
+            for module_name, module in sys.modules.items():
+                if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                    gaze_ocr_controller = module.gaze_ocr_controller
+                    break
+            
+            if not gaze_ocr_controller:
+                print("ERROR: Could not find gaze_ocr_controller")
+                return
+                
+            print("Scanning for text...")
+            gaze_ocr_controller.read_nearby()
+            contents = gaze_ocr_controller.latest_screen_contents()
+            
+            if not contents or not contents.result or not contents.result.lines:
+                print("No text found")
+                return
+                
+            print(f"Found {len(contents.result.lines)} lines of text")
+            print("")
+            
+            # Show all text with distance from cursor if cursor was found
+            all_text = []
+            for line_idx, line in enumerate(contents.result.lines):
+                for word_idx, word in enumerate(line.words):
+                    center_x = word.left + word.width // 2
+                    center_y = word.top + word.height // 2
+                    text_coords = (center_x, center_y)
+                    
+                    # Calculate distance and direction from cursor if available
+                    distance_info = ""
+                    direction_info = ""
+                    if cursor_coords:
+                        x_diff = center_x - cursor_coords[0]  # positive = text is RIGHT of cursor
+                        y_diff = center_y - cursor_coords[1]  # positive = text is DOWN from cursor  
+                        distance = ((x_diff ** 2) + (y_diff ** 2)) ** 0.5
+                        
+                        # Direction indicators
+                        horizontal = "RIGHT" if x_diff > 0 else "LEFT" if x_diff < 0 else "SAME"
+                        vertical = "DOWN" if y_diff > 0 else "UP" if y_diff < 0 else "SAME"
+                        
+                        distance_info = f" | Distance: {distance:.1f}px"
+                        direction_info = f" | Direction: {horizontal}/{vertical} ({x_diff:+.0f},{y_diff:+.0f})"
+                    
+                    text_entry = {
+                        'text': word.text,
+                        'coords': text_coords,
+                        'distance': distance if cursor_coords else None,
+                        'line': line_idx,
+                        'word': word_idx
+                    }
+                    all_text.append(text_entry)
+                    
+                    print(f"'{word.text}' at {text_coords}{distance_info}{direction_info}")
+            
+            # If cursor found, show closest text items
+            if cursor_coords and all_text:
+                print("")
+                print("=== CLOSEST TEXT TO CURSOR ===")
+                sorted_by_distance = sorted([t for t in all_text if t['distance'] is not None], key=lambda x: x['distance'])
+                for i, text_item in enumerate(sorted_by_distance[:5]):  # Show top 5 closest
+                    print(f"{i+1}. '{text_item['text']}' at {text_item['coords']} (distance: {text_item['distance']:.1f}px)")
+                    
+        except Exception as e:
+            print(f"ERROR during text scanning: {e}")
+        finally:
+            actions.user.connect_ocr_eye_tracker()
+            
+        print("=== END DEBUG PATHFINDING STATE ===")
+
+    def show_pathfinding_debug_markers(target_text: str = "Attack") -> None:
+        """Show visual debug markers for cursor and target positions on screen"""
+        try:
+            print(f"=== SHOWING DEBUG MARKERS FOR '{target_text}' ===")
+            
+            # Get current cursor position
+            highlight_image = settings.get("user.highlight_image")
+            cursor_pos = actions.user.find_cursor_flexible()
+            if not cursor_pos:
+                print("Could not detect cursor position")
+                return
+            
+            # Get target text coordinates
+            target_coords = actions.user.get_text_coordinates(target_text)
+            if not target_coords:
+                print(f"Could not find text: {target_text}")
+                return
+                
+            print(f"Cursor position: {cursor_pos}")
+            print(f"Target '{target_text}' position: {target_coords}")
+            
+            # Create marker rectangles (small 10x10 rectangles around the points)
+            marker_size = 10
+            cursor_rect = TalonRect(
+                cursor_pos[0] - marker_size//2, 
+                cursor_pos[1] - marker_size//2, 
+                marker_size, 
+                marker_size
+            )
+            target_rect = TalonRect(
+                target_coords[0] - marker_size//2, 
+                target_coords[1] - marker_size//2, 
+                marker_size, 
+                marker_size
+            )
+            
+            # Show markers using talon_ui_helper
+            actions.user.marker_ui_show([cursor_rect, target_rect])
+            print("Debug markers shown! First marker (a) = Cursor, Second marker (b) = Target")
+            
+        except Exception as e:
+            print(f"Error showing debug markers: {e}")
+
+    def hide_pathfinding_debug_markers() -> None:
+        """Hide visual debug markers"""
+        try:
+            actions.user.marker_ui_hide()
+            print("Debug markers hidden")
+        except Exception as e:
+            print(f"Error hiding debug markers: {e}")

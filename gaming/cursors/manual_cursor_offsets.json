@@ -1,0 +1,21 @@
+{
+  "chained_echoes": {
+    "chained_cursor1.png": {
+      "x_offset": 0,
+      "y_offset": -65,
+      "description": "chained_cursor1.png detects too far down, adjust upward"
+    },
+    "chained_cursor2.png": {
+      "x_offset": 0,
+      "y_offset": 14,
+      "description": "chained_cursor2.png is closer but needs small adjustment"
+    }
+  },
+  "_template_for_other_games": {
+    "cursor_template_name.png": {
+      "x_offset": 0,
+      "y_offset": 0,
+      "description": "Description of what this offset corrects"
+    }
+  }
+}

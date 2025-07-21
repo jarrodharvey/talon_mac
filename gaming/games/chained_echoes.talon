@@ -8,13 +8,14 @@ settings():
     user.travel_distance = 1
     user.navigation_mode = "unified"
     user.game_action_button = "space" 
-    user.highlight_proximity_x = 100
-    user.highlight_proximity_y = 100
-    user.highlight_image = "chained_battle_border.png"
+    user.highlight_proximity_x = 70
+    user.highlight_proximity_y = 15
+    user.cursor_directory = "chained_echoes"
     user.grid_column_threshold = 500
     user.grid_row_threshold = 40
     user.uses_pathfinding = true
     user.uses_wasd = true
+    user.navigation_interval = 800
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -39,26 +40,10 @@ parrot(kiss):
 ^sprint$: user.set_global_variable("repeat_button_speed", 250)
 ^tiptoe$: user.set_global_variable("repeat_button_speed", 1000)
 
-^action$: key("space")
-^confirm$: key("space")
-^cancel$: key("escape")
-^back$: key("escape")
-
 ^menu$: key("i")
-^inventory$: key("i")
-^pause$: key("p")
 
 ^quick save$: key("f5")
 ^quick load$: key("f9")
-
-# Speed up battle animations
-^battle speed$: key("tab")
-^fast$: key("tab")
-
-# Combat system commands - overdrive management is key to Chained Echoes
-^overdrive$: key("o")
-^guard$: key("g")
-^defend$: key("g")
 
 # Automated dialogue advancement with different speeds
 ^tutorial$: user.set_repeat_button("space", 5)
@@ -70,27 +55,27 @@ parrot(kiss):
 ^mash$: user.set_repeat_button("space", 0.5)
 ^careful$: user.set_repeat_button("space", 2)
 
-^world map$: key("m")
 ^map$: key("m")
-
-^options$: key("o")
-^settings$: key("o")
 
 ^double$: user.press_key_x_times("space", 2, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
 ^go <user.word>$: user.navigate_to_word_with_action(word)
 
+# Debug functions
+^debug text$: user.debug_all_text_coordinates()
+^debug cursor$: user.debug_cursor_position()
+^debug path$: user.debug_pathfinding_state()
+
+# Visual debug markers for pathfinding
+^path debug [<user.word>]$:
+    target = word or "Attack"
+    user.show_pathfinding_debug_markers(target)
+
+^path dismiss$:
+    user.hide_pathfinding_debug_markers()
+
 ^quack: user.press_key_x_times("escape", 4, 2)
 
 ^{user.wasd_arrows} <number>$: 
     user.press_key_x_times(user.wasd_arrows, number, 0.5)
-
-# Debug commands for grid navigation
-^test grid$: user.test_grid_analysis()
-^test nav <user.word>$: user.test_grid_navigation(word)
-^debug grid <user.word>$: user.navigate_step_grid(word, "chained_battle_border.png", true, 1, null)
-^find text <user.word>$: user.get_text_coordinates(word)
-^debug step <user.word>$: user.navigate_step(word, "chained_battle_border.png", true, 5, false, "")
-^find cursor$: user.find_template_flexible("chained_battle_border.png")
-^test flexible cursor$: user.find_template_flexible("chained_battle_border.png")
