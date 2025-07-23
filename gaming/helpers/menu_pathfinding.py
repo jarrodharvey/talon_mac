@@ -8,6 +8,14 @@ import os
 import json
 from talon.types import Rect as TalonRect
 
+# Import RapidFuzz for fuzzy text matching (same as talon-gaze-ocr)
+try:
+    from rapidfuzz import fuzz
+    RAPIDFUZZ_AVAILABLE = True
+except ImportError:
+    print("RapidFuzz not available - fuzzy matching disabled")
+    RAPIDFUZZ_AVAILABLE = False
+
 mod = Module()
 
 # Path to images for template matching
@@ -21,6 +29,53 @@ cursor_position_history = []  # Track cursor positions to detect loops
 stable_position_history = []  # Track only stable/settled cursor positions
 position_timing = {}  # Track when cursor first arrived at each position
 current_target_width = 0  # Width of current target text for victory line calculation
+
+# Basic homophones for common speech recognition errors (like talon-gaze-ocr)
+BASIC_HOMOPHONES = {
+    "ok": ["ok", "okay", "0k"],
+    "okay": ["ok", "okay", "0k"],
+    "0k": ["ok", "okay", "0k"],
+    "to": ["to", "two", "2"],
+    "two": ["to", "two", "2"],
+    "2": ["to", "two", "2"],
+    "too": ["to", "two", "2", "too"],
+    "for": ["for", "four", "4"],
+    "four": ["for", "four", "4"],
+    "4": ["for", "four", "4"],
+}
+
+def normalize_text_for_fuzzy_matching(text: str) -> str:
+    """Normalize text for fuzzy matching (same as talon-gaze-ocr)"""
+    return text.lower().replace("\u2019", "'")
+
+def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) -> float:
+    """Score a word using fuzzy matching with homophone support (similar to talon-gaze-ocr)"""
+    if not RAPIDFUZZ_AVAILABLE:
+        return 0.0
+        
+    candidate_normalized = normalize_text_for_fuzzy_matching(candidate_text)
+    target_normalized = normalize_text_for_fuzzy_matching(target_text)
+    
+    # Get homophones for the target (include the target itself)
+    homophones = BASIC_HOMOPHONES.get(target_normalized, [target_normalized])
+    if target_normalized not in homophones:
+        homophones = homophones + [target_normalized]
+    
+    # Try matching against all homophones, return best score
+    best_score = 0.0
+    for homophone in homophones:
+        try:
+            score = fuzz.ratio(
+                homophone,
+                candidate_normalized,
+                score_cutoff=threshold / 2 * 100  # Initial cutoff at 50% of threshold
+            )
+            best_score = max(best_score, score)
+        except Exception as e:
+            print(f"Fuzzy matching error for '{homophone}' vs '{candidate_normalized}': {e}")
+            continue
+    
+    return best_score / 100.0  # Convert to 0-1.0 range
 
 # Settings for menu navigation
 mod.setting(
@@ -98,6 +153,20 @@ mod.setting(
     type=str,
     default="",
     desc="Name of cursor directory under cursors/ containing game-specific cursor templates (e.g., 'chained_echoes')"
+)
+
+mod.setting(
+    "menu_enable_fuzzy_matching",
+    type=bool,
+    default=True,
+    desc="Enable fuzzy text matching when exact matches are not found"
+)
+
+mod.setting(
+    "menu_fuzzy_threshold",
+    type=float,
+    default=0.6,
+    desc="Similarity threshold for fuzzy text matching (0.0-1.0, higher = more strict)"
 )
 
 
@@ -407,18 +476,50 @@ class MenuPathfindingActions:
                 # Search for the target text
                 # Find ALL matching text instances, then pick the best one
                 text_matches = []
+                all_words = []  # Store all words for potential fuzzy matching
+                
                 for line_idx, line in enumerate(contents.result.lines):
                     for word_idx, word in enumerate(line.words):
                         print(f"Line {line_idx}, Word {word_idx}: '{word.text}' at ({word.left}, {word.top})")
+                        
+                        # Store word for potential fuzzy matching
+                        word_info = {
+                            'coords': (word.left, word.top + word.height//2),
+                            'text': word.text,
+                            'width': word.width,
+                            'line': line_idx,
+                            'word': word_idx
+                        }
+                        all_words.append(word_info)
+                        
+                        # Try exact matching first (current behavior)
                         if target_text.lower() in word.text.lower():
-                            coords = (word.left, word.top + word.height//2)
-                            text_matches.append({
-                                'coords': coords,
-                                'text': word.text,
-                                'width': word.width,
-                                'line': line_idx,
-                                'word': word_idx
-                            })
+                            text_matches.append(word_info)
+                
+                # If exact matches found, use them
+                if text_matches:
+                    print(f"Found {len(text_matches)} exact matches for '{target_text}'")
+                elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                    # Try fuzzy matching as fallback
+                    print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                    fuzzy_matches = []
+                    
+                    for word_info in all_words:
+                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                        print(f"  Testing '{word_info['text']}' vs '{target_text}': score {score:.2f} (threshold: {fuzzy_threshold:.2f})")
+                        if score >= fuzzy_threshold:
+                            word_info['fuzzy_score'] = score
+                            fuzzy_matches.append(word_info)
+                            print(f"  ✓ Fuzzy match: '{word_info['text']}' (score: {score:.2f})")
+                    
+                    if fuzzy_matches:
+                        # Sort by score (best first) and use fuzzy matches
+                        fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                        text_matches = fuzzy_matches
+                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                    else:
+                        print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
                 
                 if text_matches:
                     global current_target_width
