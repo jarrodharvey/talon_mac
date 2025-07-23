@@ -30,7 +30,7 @@ stable_position_history = []  # Track only stable/settled cursor positions
 position_timing = {}  # Track when cursor first arrived at each position
 current_target_width = 0  # Width of current target text for victory line calculation
 
-# Basic homophones for common speech recognition errors (like talon-gaze-ocr)
+# Basic homophones for common speech recognition errors (fallback if community system unavailable)
 BASIC_HOMOPHONES = {
     "ok": ["ok", "okay", "0k"],
     "okay": ["ok", "okay", "0k"],
@@ -44,38 +44,65 @@ BASIC_HOMOPHONES = {
     "4": ["for", "four", "4"],
 }
 
+def get_homophones_for_word(word: str) -> list:
+    """Get homophones using community system with fallback to basic set"""
+    try:
+        # Try community homophones system first
+        homophones = actions.user.homophones_get(word.lower())
+        if homophones and len(homophones) > 1:
+            print(f"Using community homophones for '{word}': {homophones}")
+            return homophones
+    except (KeyError, AttributeError) as e:
+        print(f"Community homophones not available for '{word}': {e}")
+    
+    # Fallback to our basic set
+    basic_homophones = BASIC_HOMOPHONES.get(word.lower(), [word])
+    if len(basic_homophones) > 1:
+        print(f"Using basic homophones for '{word}': {basic_homophones}")
+    return basic_homophones
+
 def normalize_text_for_fuzzy_matching(text: str) -> str:
     """Normalize text for fuzzy matching (same as talon-gaze-ocr)"""
     return text.lower().replace("\u2019", "'")
 
 def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) -> float:
-    """Score a word using fuzzy matching with homophone support (similar to talon-gaze-ocr)"""
+    """Score a word using fuzzy matching with community homophone support"""
     if not RAPIDFUZZ_AVAILABLE:
         return 0.0
         
     candidate_normalized = normalize_text_for_fuzzy_matching(candidate_text)
     target_normalized = normalize_text_for_fuzzy_matching(target_text)
     
-    # Get homophones for the target (include the target itself)
-    homophones = BASIC_HOMOPHONES.get(target_normalized, [target_normalized])
-    if target_normalized not in homophones:
-        homophones = homophones + [target_normalized]
+    # Get homophones using community system with fallback
+    homophones = get_homophones_for_word(target_normalized)
+    
+    # Ensure target is included (normalize homophones to lowercase)
+    homophones_normalized = [normalize_text_for_fuzzy_matching(h) for h in homophones]
+    if target_normalized not in homophones_normalized:
+        homophones_normalized.append(target_normalized)
     
     # Try matching against all homophones, return best score
     best_score = 0.0
-    for homophone in homophones:
+    best_homophone = None
+    
+    for homophone in homophones_normalized:
         try:
             score = fuzz.ratio(
                 homophone,
                 candidate_normalized,
                 score_cutoff=threshold / 2 * 100  # Initial cutoff at 50% of threshold
             )
-            best_score = max(best_score, score)
+            if score > best_score * 100:  # Convert back to compare
+                best_score = score / 100.0
+                best_homophone = homophone
         except Exception as e:
             print(f"Fuzzy matching error for '{homophone}' vs '{candidate_normalized}': {e}")
             continue
     
-    return best_score / 100.0  # Convert to 0-1.0 range
+    if best_homophone and best_score > 0:
+        print(f"    Best match: homophone '{best_homophone}' vs candidate '{candidate_normalized}' = {best_score:.2f}")
+    
+    return best_score
 
 # Settings for menu navigation
 mod.setting(
