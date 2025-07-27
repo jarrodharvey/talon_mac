@@ -7,7 +7,7 @@ mode: user.game
 ^taste$: user.diagonal("d", "d", 0, "True")
 ^west$: user.diagonal("a", "a", 0, "True")
 
-^northeast$: user.diagonal("w", "d", 0, "True")
-^southeast$: user.diagonal("s", "d", 0, "True")
-^northwest$: user.diagonal("w", "a", 0, "True")
-^southwest$: user.diagonal("s", "a", 0, "True")
+^next$: user.diagonal("w", "d", 0, "True")
+^sex$: user.diagonal("s", "d", 0, "True")
+^now$: user.diagonal("w", "a", 0, "True")
+^swish$: user.diagonal("s", "a", 0, "True")

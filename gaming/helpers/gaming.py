@@ -15,6 +15,7 @@ cron_right_eye_closed = None
 brow_direction = None 
 button_presser_job = None
 grinding_job = None
+conditional_image_job = None
 repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
@@ -44,6 +45,7 @@ mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
+mod.tag("pathfinding_cubes", "Tag for games that support cubes pathfinding navigation")
 
 mod.setting(
     "travel_distance",
@@ -135,6 +137,7 @@ class Actions:
         global button_presser_job
         global grinding_job
         global mouse_mover_job
+        global conditional_image_job
 
         actions.key("left:up")
         actions.key("right:up")
@@ -171,6 +174,8 @@ class Actions:
         button_presser_job = None
         cron.cancel(grinding_job)
         grinding_job = None
+        cron.cancel(conditional_image_job)
+        conditional_image_job = None
         actions.user.stop_continuous_navigation()
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
@@ -202,20 +207,34 @@ class Actions:
         time.sleep(0.3)
     def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False, stop_self: bool = True):
         """Travel diagonally in a game"""
+        print(f"DIAGONAL START: {dir1}, {dir2}, held_time={held_time}, hold={hold}, stop_self={stop_self}")
         if stop_self:
+            # Check if gamepad movement was active before calling game_stop
+            gamepad_was_active = button_presser_job is not None
+            print(f"DIAGONAL: gamepad_was_active={gamepad_was_active}")
             actions.user.game_stop()
+            
+            # Only add delay when transitioning FROM gamepad movement
+            if gamepad_was_active:
+                time.sleep(0.15)  # 150ms buffer for gamepad→voice transition (was 50ms)
+                print("Gamepad→voice transition: added 150ms stabilization delay")
         hold = str_to_bool(hold)
         # The higher the hold_time_modifier, the faster the diagonal movement
         hold_time_modifier = 0.1 * settings.get("user.travel_distance")
+        print(f"DIAGONAL: pressing {dir1}:down and {dir2}:down")
         actions.key(f"{dir1}:down")
         actions.key(f"{dir2}:down")
-        print("Held time: ", held_time)
-        time.sleep(held_time * hold_time_modifier)
+        sleep_time = held_time * hold_time_modifier
+        print(f"DIAGONAL: sleeping for {sleep_time} seconds")
+        time.sleep(sleep_time)
         if hold == False and stop_self:
+            print("DIAGONAL: calling game_stop() because hold=False and stop_self=True")
             actions.user.game_stop()
         if stop_self == False:
+            print(f"DIAGONAL: releasing {dir1}:up and {dir2}:up")
             actions.key(f"{dir1}:up")
             actions.key(f"{dir2}:up")
+        print("DIAGONAL END")
         return
     def conditional_click():
         """Super click if the mouse is not dragging,  otherwise button down"""
@@ -428,6 +447,25 @@ class Actions:
             actions.key(action_button)
         else:
             actions.key(directions[random.randint(0,3)])
+    def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True):
+        """Presses a button if an image is present or not present on the screen"""
+        global conditional_image_job
+        actions.user.game_stop()
+        if image_present:
+            conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, True))
+        else:
+            conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, False))
+    def conditional_image_button_press_helper(action_button: str, image_name: str, image_present: bool):
+        """Helper function for conditional image button press"""
+        global conditional_image_job
+        # Check if the image is present on the screen
+        # If it is, press the action button, otherwise cancel the cron job
+        print(f"Checking if image {image_name} is present: {image_present}")
+        if actions.user.image_appeared_on_screen(image_name) == image_present:
+            actions.key(action_button)
+        else:
+            print(f"Image {image_name} presence is not {image_present}, cancelling {action_button}")
+            cron.cancel(conditional_image_job)
     def click_then_wait(wait_time: int):
         """Clicks the mouse then waits for a specified time"""
         actions.user.super_click()
