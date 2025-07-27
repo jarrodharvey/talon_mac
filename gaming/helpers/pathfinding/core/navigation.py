@@ -16,6 +16,95 @@ navigation_steps_taken = 0
 last_direction_pressed = None
 cursor_position_history = []
 
+def find_currently_selected_word(cursor_pos):
+    """Find the currently selected word by looking for text to the RIGHT of cursor position"""
+    try:
+        # Get OCR data using same method as get_text_coordinates
+        import sys
+        gaze_ocr_controller = None
+        
+        # Find the OCR controller
+        for module_name, module in sys.modules.items():
+            if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                gaze_ocr_controller = module.gaze_ocr_controller
+                break
+        
+        if not gaze_ocr_controller:
+            print("ERROR: Could not find gaze_ocr_controller for selected word detection")
+            return None
+            
+        # Get the latest OCR scan (should already be available from recent navigation)
+        contents = gaze_ocr_controller.latest_screen_contents()
+        if not contents or not contents.result or not contents.result.lines:
+            print("No OCR data available for selected word detection")
+            return None
+            
+        cursor_x, cursor_y = cursor_pos
+        candidates = []
+        
+        # Search all words for candidates to the RIGHT of cursor
+        for line_idx, line in enumerate(contents.result.lines):
+            for word_idx, word in enumerate(line.words):
+                # Calculate word coordinates: LEFT EDGE for selected word (not center!)
+                word_left_x = word.left
+                word_center_y = word.top + word.height // 2
+                
+                # Word must be to the RIGHT of cursor (x-coordinate higher)
+                if word_left_x > cursor_x:
+                    # And within reasonable vertical proximity (50px tolerance)
+                    vertical_distance = abs(word_center_y - cursor_y)
+                    if vertical_distance <= 50:
+                        # Filter out likely OCR fragments (single characters, short words)
+                        is_likely_fragment = len(word.text.strip()) <= 1
+                        
+                        candidates.append({
+                            'text': word.text,
+                            'coords': (word_left_x, word_center_y),  # LEFT EDGE, not center
+                            'distance_from_cursor': word_left_x - cursor_x,
+                            'vertical_distance': vertical_distance,
+                            'is_above_cursor': word_center_y < cursor_y,
+                            'is_likely_fragment': is_likely_fragment,
+                            'word_length': len(word.text.strip())
+                        })
+        
+        if not candidates:
+            print(f"No words found to the right of cursor at {cursor_pos}")
+            return None
+        
+        # Advanced selection logic prioritizing proper menu items
+        # 1. Filter out obvious fragments if we have better options
+        non_fragments = [c for c in candidates if not c['is_likely_fragment']]
+        if non_fragments:
+            candidates = non_fragments
+            print(f"Filtered out {len([c for c in candidates if c['is_likely_fragment']])} single-character candidates")
+        
+        # 2. Prioritize words ABOVE cursor (typical menu item position)
+        words_above = [c for c in candidates if c['is_above_cursor']]
+        if words_above:
+            candidates = words_above
+            print(f"Prioritizing {len(words_above)} words above cursor position")
+        
+        # 3. Sort by vertical proximity first (closer to cursor Y), then horizontal distance
+        selected_word = min(candidates, key=lambda w: (w['vertical_distance'], w['distance_from_cursor']))
+        
+        # Debug logging to show selection process
+        print(f"=== SELECTED WORD DETECTION RESULTS ===")
+        print(f"Cursor position: {cursor_pos}")
+        print(f"Final candidates after filtering:")
+        for i, candidate in enumerate(sorted(candidates, key=lambda w: (w['vertical_distance'], w['distance_from_cursor']))):
+            marker = "← SELECTED" if candidate == selected_word else ""
+            print(f"  {i+1}. '{candidate['text']}' at {candidate['coords']} "
+                  f"(vert_dist: {candidate['vertical_distance']:.1f}, "
+                  f"horiz_dist: {candidate['distance_from_cursor']:.1f}, "
+                  f"above: {candidate['is_above_cursor']}) {marker}")
+        print(f"SELECTED: '{selected_word['text']}' at {selected_word['coords']}")
+        
+        return selected_word
+        
+    except Exception as e:
+        print(f"Error in find_currently_selected_word: {e}")
+        return None
+
 @mod.action_class
 class CoreNavigationActions:
     def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1) -> bool:
@@ -106,32 +195,50 @@ class CoreNavigationActions:
                         actions.user.stop_continuous_navigation()
                         return False
             
-            # Check proximity using configurable navigation mode
-            x_diff = text_coords[0] - highlight_center[0]
-            y_diff = text_coords[1] - highlight_center[1]
+            # NEW: Find currently selected word for direction calculation
+            selected_word = find_currently_selected_word(highlight_center)
+            navigation_source = highlight_center  # Default fallback to cursor position
+            
+            if selected_word:
+                # Use selected word coordinates for direction calculation
+                navigation_source = selected_word['coords']
+                print(f"=== WORD-TO-WORD NAVIGATION ===")
+                print(f"Selected word: '{selected_word['text']}' at {navigation_source}")
+                print(f"Target word: '{target_text}' at {text_coords}")
+            else:
+                # Fallback to cursor-based navigation
+                print(f"=== CURSOR-BASED NAVIGATION (fallback) ===")
+                print(f"Cursor coords: {highlight_center}")
+                print(f"Target '{target_text}' coords: {text_coords}")
+            
+            # Calculate direction using selected word (or cursor fallback) → target
+            x_diff = text_coords[0] - navigation_source[0]
+            y_diff = text_coords[1] - navigation_source[1]
+            
+            # But use cursor position for proximity detection (arrival check)
+            cursor_x_diff = text_coords[0] - highlight_center[0]
+            cursor_y_diff = text_coords[1] - highlight_center[1]
             
             # Get configurable proximity settings
             proximity_x = settings.get("user.highlight_proximity_x")
             proximity_y = settings.get("user.highlight_proximity_y")
             
-            print(f"=== NAVIGATION ===")
-            print(f"Target '{target_text}' coords: {text_coords}")
-            print(f"Cursor coords: {highlight_center}")
-            print(f"X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}")
+            print(f"Direction calculation - X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}")
+            print(f"Proximity check (cursor) - X diff: {cursor_x_diff:.1f}, Y diff: {cursor_y_diff:.1f}")
             print(f"Mode: {navigation_mode}")
             
             if navigation_mode == "vertical":
-                # Vertical mode - Y check only
-                is_on_target = abs(y_diff) <= proximity_y
-                print(f"Vertical mode - Y close: {abs(y_diff)} <= {proximity_y}, On target: {is_on_target}")
+                # Vertical mode - Y check only (use cursor position for proximity)
+                is_on_target = abs(cursor_y_diff) <= proximity_y
+                print(f"Vertical mode - Y close: {abs(cursor_y_diff)} <= {proximity_y}, On target: {is_on_target}")
             elif navigation_mode == "horizontal":
-                # Horizontal mode - X check only  
-                is_on_target = abs(x_diff) <= proximity_x
-                print(f"Horizontal mode - X close: {abs(x_diff)} <= {proximity_x}, On target: {is_on_target}")
+                # Horizontal mode - X check only (use cursor position for proximity)
+                is_on_target = abs(cursor_x_diff) <= proximity_x
+                print(f"Horizontal mode - X close: {abs(cursor_x_diff)} <= {proximity_x}, On target: {is_on_target}")
             else:
-                # Unified mode - use configurable X/Y proximity
-                is_on_target = abs(x_diff) <= proximity_x and abs(y_diff) <= proximity_y
-                print(f"Unified mode - X close: {abs(x_diff)} <= {proximity_x}, Y close: {abs(y_diff)} <= {proximity_y}, On target: {is_on_target}")
+                # Unified mode - use configurable X/Y proximity (use cursor position for proximity)
+                is_on_target = abs(cursor_x_diff) <= proximity_x and abs(cursor_y_diff) <= proximity_y
+                print(f"Unified mode - X close: {abs(cursor_x_diff)} <= {proximity_x}, Y close: {abs(cursor_y_diff)} <= {proximity_y}, On target: {is_on_target}")
             
             if is_on_target:
                 if action_button:
@@ -179,7 +286,7 @@ class CoreNavigationActions:
                         last_direction_pressed = key_to_press
             elif navigation_mode == "horizontal":
                 # Horizontal mode - prioritize horizontal movement
-                if abs(x_diff) > 10:
+                if abs(x_diff) > proximity_x:
                     if x_diff > 0:
                         key_to_press = "d" if use_wasd else "right"
                         print(f"Pressing {key_to_press} (right)")

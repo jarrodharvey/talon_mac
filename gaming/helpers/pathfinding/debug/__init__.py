@@ -230,9 +230,14 @@ class DebugActions:
         try:
             print(f"=== SHOWING DEBUG MARKERS FOR '{target_text}' ===")
             
+            # Hide any existing markers first to avoid interference
+            actions.user.hide_pathfinding_debug_markers()
+            
             # Get current cursor position
             highlight_image = settings.get("user.highlight_image")
+            print("DEBUG: About to call find_cursor_flexible() from debug markers")
             cursor_pos = actions.user.find_cursor_flexible()
+            print(f"DEBUG: find_cursor_flexible() returned: {cursor_pos}")
             if not cursor_pos:
                 print("Could not detect cursor position")
                 return
@@ -242,28 +247,57 @@ class DebugActions:
             if not target_coords:
                 print(f"Could not find text: {target_text}")
                 return
-                
-            print(f"Cursor position: {cursor_pos}")
-            print(f"Target '{target_text}' position: {target_coords}")
+            
+            # NEW: Get currently selected word coordinates
+            from ..core.navigation import find_currently_selected_word
+            selected_word = find_currently_selected_word(cursor_pos)
+            
+            print(f"Debug marker - Cursor position: {cursor_pos}")
+            if selected_word:
+                print(f"Debug marker - Selected word: '{selected_word['text']}' at {selected_word['coords']}")
+            else:
+                print("Debug marker - Selected word: Not found")
+            print(f"Debug marker - Target '{target_text}' position: {target_coords}")
             
             # Create marker rectangles (small 10x10 rectangles around the points)
             marker_size = 10
+            marker_rects = []
+            
+            # Marker A: Cursor position
             cursor_rect = TalonRect(
                 cursor_pos[0] - marker_size//2, 
                 cursor_pos[1] - marker_size//2, 
                 marker_size, 
                 marker_size
             )
+            marker_rects.append(cursor_rect)
+            
+            # Marker B: Target position
             target_rect = TalonRect(
                 target_coords[0] - marker_size//2, 
                 target_coords[1] - marker_size//2, 
                 marker_size, 
                 marker_size
             )
+            marker_rects.append(target_rect)
+            
+            # Marker C: Selected word position (if found)
+            if selected_word:
+                selected_word_rect = TalonRect(
+                    selected_word['coords'][0] - marker_size//2, 
+                    selected_word['coords'][1] - marker_size//2, 
+                    marker_size, 
+                    marker_size
+                )
+                marker_rects.append(selected_word_rect)
             
             # Show markers using talon_ui_helper
-            actions.user.marker_ui_show([cursor_rect, target_rect])
-            print("Debug markers shown! First marker (a) = Cursor, Second marker (b) = Target")
+            actions.user.marker_ui_show(marker_rects)
+            
+            if selected_word:
+                print("Debug markers shown! Marker (a) = Cursor, Marker (b) = Target, Marker (c) = Selected Word")
+            else:
+                print("Debug markers shown! Marker (a) = Cursor, Marker (b) = Target (Selected word not found)")
             
         except Exception as e:
             print(f"Error showing debug markers: {e}")
