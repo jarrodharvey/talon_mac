@@ -5,24 +5,29 @@ This module provides OCR-based navigation, template matching, and cube-based
 UI element selection for keyboard-only games and applications.
 """
 
-# Import all submodules to maintain backward compatibility
+# Import all submodules to ensure action classes are registered
 from . import core
 from . import ocr
 from . import cubes
 from . import debug
 from . import utils
 
-# Re-export key functions for backward compatibility
-# Import key action functions that external code depends on
+# CRITICAL: Import action classes to ensure they are registered with Talon
+# These imports must happen so that @mod.action_class decorators execute
 try:
-    # These imports will work as modules are completed
-    from .core.navigation import CoreNavigationActions
-    from .ocr.text_detection import OCRTextDetectionActions
-    from .ocr.template_matching import TemplateMatchingActions
-    from .utils.geometry import GeometryActions
-    from .utils.action_helpers import ActionHelpersActions
+    from .core import navigation
+    from .core import pattern_detection
+    from .core import settings
+    from .ocr import text_detection
+    from .ocr import template_matching
+    from .ocr import homophones
+    from .utils import geometry
+    from .utils import action_helpers
+    from .cubes import cube_settings
+    print("Pathfinding module loaded: all action classes should now be registered")
 except ImportError as e:
-    print(f"Note: Some pathfinding modules still being migrated: {e}")
+    print(f"Error loading pathfinding modules: {e}")
+    print("Some pathfinding functionality may not be available")
 
 __all__ = [
     'core',

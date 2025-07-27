@@ -305,9 +305,9 @@ class CoreNavigationActions:
         if use_wasd is None:
             use_wasd = settings.get("user.uses_wasd")
         
-        # Convert word to proper case for search
-        if isinstance(word, str):
-            target_text = word.capitalize()
+        # Convert word to proper case for search - handle TimestampedText objects
+        if hasattr(word, 'text'):
+            target_text = word.text.capitalize()
         else:
             target_text = str(word).capitalize()
         
