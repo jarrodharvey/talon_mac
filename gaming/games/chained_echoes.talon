@@ -111,9 +111,14 @@ double: user.press_key_x_times("space", 2, 1)
 
 ^ultra$: key("r")
 ^optimize$: key("i")
-^knock$: key("e")
-^previous$: key("q")
-^level up$: key("i")
+^knock [<number>]$: 
+    user.press_key_x_times("e", number or 1, 0.5)
+^previous [<number>]$: 
+    user.press_key_x_times("q", number or 1, 0.5)
+^level up$: 
+    key("i")
+    sleep(0.5)
+    key("space")
 ^teleport$: key("i")
 ^(location | quest) info$: key("e")
 ^select all$: key("m") 
