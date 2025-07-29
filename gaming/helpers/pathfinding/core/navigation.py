@@ -62,14 +62,23 @@ def find_currently_selected_word(cursor_pos):
                         # Filter out likely OCR fragments (single characters, short words)
                         is_likely_fragment = len(word.text.strip()) <= 1
                         
+                        # Calculate distance, prioritizing words to the RIGHT of cursor
+                        if word_left_x >= cursor_x:
+                            # Word is to the right of cursor - use actual distance
+                            distance_from_cursor = word_left_x - cursor_x
+                        else:
+                            # Word starts to the left but within proximity - use small penalty
+                            distance_from_cursor = cursor_x - word_left_x + 1000  # Add penalty for leftward words
+                        
                         candidates.append({
                             'text': word.text,
                             'coords': (word_left_x, word_center_y),  # LEFT EDGE, not center
-                            'distance_from_cursor': abs(word_left_x - cursor_x),  # Use absolute distance
+                            'distance_from_cursor': distance_from_cursor,  # Prioritize rightward words
                             'vertical_distance': vertical_distance,
                             'is_above_cursor': word_center_y < cursor_y,
                             'is_likely_fragment': is_likely_fragment,
-                            'word_length': len(word.text.strip())
+                            'word_length': len(word.text.strip()),
+                            'is_right_of_cursor': word_left_x >= cursor_x
                         })
         
         if not candidates:
@@ -106,10 +115,12 @@ def find_currently_selected_word(cursor_pos):
         print(f"Final candidates after filtering:")
         for i, candidate in enumerate(sorted(candidates, key=lambda w: w['distance_from_cursor'])):
             marker = "← SELECTED" if candidate == selected_word else ""
+            right_marker = "→" if candidate.get('is_right_of_cursor', False) else "←"
             print(f"  {i+1}. '{candidate['text']}' at {candidate['coords']} "
                   f"(horiz_dist: {candidate['distance_from_cursor']:.1f}, "
                   f"vert_dist: {candidate['vertical_distance']:.1f}, "
-                  f"above: {candidate['is_above_cursor']}) {marker}")
+                  f"above: {candidate['is_above_cursor']}, "
+                  f"direction: {right_marker}) {marker}")
         print(f"SELECTED: '{selected_word['text']}' at {selected_word['coords']}")
         
         return selected_word
