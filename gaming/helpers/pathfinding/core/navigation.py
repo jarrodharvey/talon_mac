@@ -78,13 +78,21 @@ def find_currently_selected_word(cursor_pos):
             candidates = non_fragments
             print(f"Filtered out {len([c for c in candidates if c['is_likely_fragment']])} single-character candidates")
         
-        # 2. Prioritize words ABOVE cursor (typical menu item position)
+        # 2. Filter out words that are too far horizontally (likely from different menu sections)
+        horizontal_threshold = 150  # Maximum horizontal distance in pixels
+        nearby_candidates = [c for c in candidates if c['distance_from_cursor'] <= horizontal_threshold]
+        if nearby_candidates:
+            candidates = nearby_candidates
+            filtered_count = len([c for c in candidates if c['distance_from_cursor'] > horizontal_threshold])
+            print(f"Filtered out {filtered_count} candidates beyond {horizontal_threshold}px horizontal distance")
+        
+        # 3. Prioritize words ABOVE cursor (typical menu item position)
         words_above = [c for c in candidates if c['is_above_cursor']]
         if words_above:
             candidates = words_above
             print(f"Prioritizing {len(words_above)} words above cursor position")
         
-        # 3. Sort by vertical proximity first (closer to cursor Y), then horizontal distance
+        # 4. Sort by vertical proximity first (closer to cursor Y), then horizontal distance
         selected_word = min(candidates, key=lambda w: (w['vertical_distance'], w['distance_from_cursor']))
         
         # Debug logging to show selection process
