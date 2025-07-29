@@ -8,7 +8,7 @@ settings():
     user.travel_distance = 1
     user.navigation_mode = "unified"
     user.game_action_button = "space" 
-    user.highlight_proximity_x = 70
+    user.highlight_proximity_x = 20 
     user.highlight_proximity_y = 15
     user.cursor_directory = "chained_echoes"
     user.grid_column_threshold = 500

@@ -42,6 +42,10 @@ def find_currently_selected_word(cursor_pos):
         cursor_x, cursor_y = cursor_pos
         candidates = []
         
+        # Get proximity settings
+        proximity_x = settings.get("user.highlight_proximity_x", 70)  # Default to 70px if not set
+        proximity_y = settings.get("user.highlight_proximity_y", 50)  # Default to 50px if not set
+        
         # Search all words for candidates to the RIGHT of cursor
         for line_idx, line in enumerate(contents.result.lines):
             for word_idx, word in enumerate(line.words):
@@ -49,18 +53,19 @@ def find_currently_selected_word(cursor_pos):
                 word_left_x = word.left
                 word_center_y = word.top + word.height // 2
                 
-                # Word must be to the RIGHT of cursor (x-coordinate higher)
-                if word_left_x > cursor_x:
-                    # And within reasonable vertical proximity (50px tolerance)
+                # Word must be to the RIGHT of cursor OR cursor is positioned within/near the word
+                # Allow words that start up to proximity_x pixels to the left of cursor (cursor positioned within word)
+                if word_left_x > cursor_x - proximity_x:
+                    # And within reasonable vertical proximity (using configured setting)
                     vertical_distance = abs(word_center_y - cursor_y)
-                    if vertical_distance <= 50:
+                    if vertical_distance <= proximity_y:
                         # Filter out likely OCR fragments (single characters, short words)
                         is_likely_fragment = len(word.text.strip()) <= 1
                         
                         candidates.append({
                             'text': word.text,
                             'coords': (word_left_x, word_center_y),  # LEFT EDGE, not center
-                            'distance_from_cursor': word_left_x - cursor_x,
+                            'distance_from_cursor': abs(word_left_x - cursor_x),  # Use absolute distance
                             'vertical_distance': vertical_distance,
                             'is_above_cursor': word_center_y < cursor_y,
                             'is_likely_fragment': is_likely_fragment,
@@ -92,18 +97,18 @@ def find_currently_selected_word(cursor_pos):
             candidates = words_above
             print(f"Prioritizing {len(words_above)} words above cursor position")
         
-        # 4. Sort by vertical proximity first (closer to cursor Y), then horizontal distance
-        selected_word = min(candidates, key=lambda w: (w['vertical_distance'], w['distance_from_cursor']))
+        # 4. Sort by horizontal proximity only - closest word to cursor
+        selected_word = min(candidates, key=lambda w: w['distance_from_cursor'])
         
         # Debug logging to show selection process
         print(f"=== SELECTED WORD DETECTION RESULTS ===")
         print(f"Cursor position: {cursor_pos}")
         print(f"Final candidates after filtering:")
-        for i, candidate in enumerate(sorted(candidates, key=lambda w: (w['vertical_distance'], w['distance_from_cursor']))):
+        for i, candidate in enumerate(sorted(candidates, key=lambda w: w['distance_from_cursor'])):
             marker = "← SELECTED" if candidate == selected_word else ""
             print(f"  {i+1}. '{candidate['text']}' at {candidate['coords']} "
-                  f"(vert_dist: {candidate['vertical_distance']:.1f}, "
-                  f"horiz_dist: {candidate['distance_from_cursor']:.1f}, "
+                  f"(horiz_dist: {candidate['distance_from_cursor']:.1f}, "
+                  f"vert_dist: {candidate['vertical_distance']:.1f}, "
                   f"above: {candidate['is_above_cursor']}) {marker}")
         print(f"SELECTED: '{selected_word['text']}' at {selected_word['coords']}")
         
