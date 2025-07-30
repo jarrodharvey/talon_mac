@@ -8,21 +8,15 @@ settings():
     user.travel_distance = 1
     user.navigation_mode = "unified"
     user.game_action_button = "space" 
-    user.highlight_proximity_x = 20 
-    user.highlight_proximity_y = 15
+    user.highlight_proximity_x = 60 
+    user.highlight_proximity_y = 20
     user.cursor_directory = "chained_echoes"
     user.grid_column_threshold = 500
     user.grid_row_threshold = 40
     user.uses_pathfinding = true
     user.uses_wasd = true
     user.navigation_interval = 500
-    # Cube settings for character portrait navigation
-    user.cube_min_width = 40
-    user.cube_min_height = 25
-    user.cube_max_count = 30
-    # Bright blue cubes to differentiate from flex-mouse-grid purple
-    user.cube_background_color = "00BFFF"
-    user.cube_stroke_color = "0080FF"
+    user.default_action_button_interval = 1
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -110,6 +104,7 @@ double: user.press_key_x_times("space", 2, 1)
     key("space")
 
 ^ultra$: key("r")
+claim: key("m")
 ^optimize$: key("i")
 ^knock [<number>]$: 
     user.press_key_x_times("e", number or 1, 0.5)
@@ -134,6 +129,8 @@ key(=):
     user.conditional_image_button_press("space", "chained_chat.png", 4000, true)
 
 ^quack: user.press_key_x_times("escape", 4, 2)
+
+^actions <number>$: user.change_gaming_setting("user.default_action_button_count", number)
 
 {user.wasd_arrows} [<number>]: 
     user.press_key_x_times(user.wasd_arrows, number or 1, 0.5)

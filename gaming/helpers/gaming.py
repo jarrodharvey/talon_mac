@@ -531,3 +531,9 @@ class Actions:
         time.sleep(0.2)
         if looking_around == "no":
             actions.key(f"{forward_button}:down")
+    def change_gaming_setting(setting_name: str, value: int):
+        """Change a gaming setting dynamically"""
+        setting_ctx = Context()
+        setting_ctx.matches = "mode: user.game"
+        setting_ctx.settings = {setting_name: value}
+        print(f"Set {setting_name} to {value}")
