@@ -4,12 +4,80 @@ Debug tools and testing utilities for pathfinding system.
 Provides debug markers, coordinate logging, state inspection, and test functions.
 """
 
-from talon import Module, actions, settings
+from talon import Module, actions, settings, canvas, ui
 from talon.types import Rect as TalonRect
 import sys
 import os
 
 mod = Module()
+
+# Global variable to store the crosshair overlay
+_crosshair_overlay = None
+
+class CrosshairOverlay:
+    """Simple canvas overlay for drawing crosshair lines"""
+    
+    def __init__(self, cursor_pos, proximity_x, proximity_y, is_on_target=False):
+        self.cursor_pos = cursor_pos
+        self.proximity_x = proximity_x
+        self.proximity_y = proximity_y
+        self.is_on_target = is_on_target
+        
+        # Create full-screen canvas
+        active_window = ui.active_window()
+        if active_window.id == -1:
+            rect = ui.main_screen().rect
+        else:
+            rect = active_window.screen.rect
+            
+        self.canvas = canvas.Canvas.from_rect(rect)
+        self.canvas.register("draw", self._draw)
+        self.canvas.blocks_mouse = False  # Don't interfere with mouse interactions
+        
+    def show(self):
+        """Show the crosshair overlay"""
+        self.canvas.show()
+        self.canvas.freeze()
+        
+    def hide(self):
+        """Hide the crosshair overlay"""
+        self.canvas.hide()
+        
+    def destroy(self):
+        """Clean up the overlay"""
+        try:
+            self.canvas.unregister("draw", self._draw)
+            self.canvas.close()
+        except:
+            pass  # Ignore errors during cleanup
+            
+    def _draw(self, canvas):
+        """Draw the crosshair lines showing victory condition zones"""
+        paint = canvas.paint
+        paint.style = paint.Style.STROKE
+        # Green when on target, red when not
+        paint.color = '00ff00ff' if self.is_on_target else 'ff0000ff'
+        paint.stroke_width = 2    # 2-pixel thick lines
+        
+        cursor_x, cursor_y = self.cursor_pos
+        
+        # Right-only horizontal crosshair line (cursor to right proximity limit)
+        # Shows: "cursor can be this far right of target and still succeed"
+        canvas.draw_line(
+            cursor_x,                     # start at cursor center
+            cursor_y,
+            cursor_x + self.proximity_x,  # extend right to proximity limit
+            cursor_y
+        )
+        
+        # Vertical crosshair line (up to down through cursor)
+        # Shows: "cursor can be this far up/down from target and still succeed"
+        canvas.draw_line(
+            cursor_x,
+            cursor_y - self.proximity_y,  # top end
+            cursor_x, 
+            cursor_y + self.proximity_y   # bottom end
+        )
 
 @mod.action_class
 class DebugActions:
@@ -226,7 +294,9 @@ class DebugActions:
         print("=== END DEBUG PATHFINDING STATE ===")
 
     def show_pathfinding_debug_markers(target_text: str = "Attack") -> None:
-        """Show visual debug markers for cursor and target positions on screen"""
+        """Show visual debug markers for cursor and target positions on screen with red crosshair lines"""
+        global _crosshair_overlay
+        
         try:
             print(f"=== SHOWING DEBUG MARKERS FOR '{target_text}' ===")
             
@@ -238,6 +308,23 @@ class DebugActions:
             print("DEBUG: About to call find_cursor_flexible() from debug markers")
             cursor_pos = actions.user.find_cursor_flexible()
             print(f"DEBUG: find_cursor_flexible() returned: {cursor_pos}")
+            
+            # Get the last successful cursor filename for debugging
+            try:
+                # Import the global variable from template_matching
+                import importlib
+                template_matching_module = importlib.import_module("jarrod.gaming.helpers.pathfinding.ocr.template_matching")
+                if hasattr(template_matching_module, 'last_successful_cursor_file'):
+                    cursor_filename = template_matching_module.last_successful_cursor_file
+                    if cursor_filename:
+                        print(f"DEBUG CURSOR FILENAME: {cursor_filename}")
+                    else:
+                        print("DEBUG CURSOR FILENAME: None (no successful cursor detected)")
+                else:
+                    print("DEBUG: last_successful_cursor_file variable not found")
+            except Exception as e:
+                print(f"DEBUG: Could not access cursor filename: {e}")
+            
             if not cursor_pos:
                 print("Could not detect cursor position")
                 return
@@ -259,7 +346,32 @@ class DebugActions:
                 print("Debug marker - Selected word: Not found")
             print(f"Debug marker - Target '{target_text}' position: {target_coords}")
             
-            # Create marker rectangles (small 10x10 rectangles around the points)
+            # Get proximity settings for crosshair dimensions
+            proximity_x = settings.get("user.highlight_proximity_x", 100)
+            proximity_y = settings.get("user.highlight_proximity_y", 80)
+            
+            # Calculate proximity state (same logic as navigation system)
+            cursor_x_diff = target_coords[0] - cursor_pos[0]
+            cursor_y_diff = target_coords[1] - cursor_pos[1]
+            
+            # Get navigation mode to determine how to check proximity
+            navigation_mode = settings.get("user.navigation_mode", "unified")
+            
+            if navigation_mode == "vertical":
+                # Vertical mode - Y check only
+                is_on_target = abs(cursor_y_diff) <= proximity_y
+            elif navigation_mode == "horizontal": 
+                # Horizontal mode - X check only
+                is_on_target = abs(cursor_x_diff) <= proximity_x
+            else:
+                # Unified mode - check both axes
+                is_on_target = abs(cursor_x_diff) <= proximity_x and abs(cursor_y_diff) <= proximity_y
+            
+            # Create crosshair overlay with color based on proximity state
+            _crosshair_overlay = CrosshairOverlay(cursor_pos, proximity_x, proximity_y, is_on_target)
+            _crosshair_overlay.show()
+            
+            # Create marker rectangles for cursor, target, and selected word positions
             marker_size = 10
             marker_rects = []
             
@@ -294,19 +406,33 @@ class DebugActions:
             # Show markers using talon_ui_helper
             actions.user.marker_ui_show(marker_rects)
             
+            # Debug output with proximity state and color info
+            color_status = "GREEN (on target)" if is_on_target else "RED (not on target)"
+            print(f"Debug markers with {color_status} crosshair lines shown!")
+            print(f"Proximity: {proximity_x}x{proximity_y}px, Mode: {navigation_mode}")
+            print(f"Distance to target: X={cursor_x_diff:.1f}px, Y={cursor_y_diff:.1f}px")
             if selected_word:
-                print("Debug markers shown! Marker (a) = Cursor, Marker (b) = Target, Marker (c) = Selected Word")
+                print("Markers: (a) = Cursor, (b) = Target, (c) = Selected Word + Crosshair lines")
             else:
-                print("Debug markers shown! Marker (a) = Cursor, Marker (b) = Target (Selected word not found)")
+                print("Markers: (a) = Cursor, (b) = Target + Crosshair lines")
             
         except Exception as e:
             print(f"Error showing debug markers: {e}")
 
     def hide_pathfinding_debug_markers() -> None:
-        """Hide visual debug markers"""
+        """Hide visual debug markers and crosshair lines"""
+        global _crosshair_overlay
+        
         try:
+            # Hide marker UI
             actions.user.marker_ui_hide()
-            print("Debug markers hidden")
+            
+            # Hide and destroy crosshair overlay
+            if _crosshair_overlay:
+                _crosshair_overlay.destroy()
+                _crosshair_overlay = None
+                
+            print("Debug markers and crosshair lines hidden")
         except Exception as e:
             print(f"Error hiding debug markers: {e}")
 
