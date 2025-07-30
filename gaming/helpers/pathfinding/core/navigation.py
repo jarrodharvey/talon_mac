@@ -7,6 +7,7 @@ continuous navigation, and navigation mode handling.
 
 from talon import Module, actions, settings, cron
 from ..utils.action_helpers import press_action_button_multiple
+from . import settings as pathfinding_settings
 
 mod = Module()
 
@@ -112,6 +113,17 @@ def find_currently_selected_word(cursor_pos):
         # Debug logging to show selection process
         print(f"=== SELECTED WORD DETECTION RESULTS ===")
         print(f"Cursor position: {cursor_pos}")
+        
+        # Show which cursor file was used for detection
+        try:
+            from ..ocr.template_matching import last_successful_cursor_file
+            if last_successful_cursor_file:
+                print(f"Cursor detected using: {last_successful_cursor_file}")
+            else:
+                print("Cursor filename: None (no successful cursor detected)")
+        except Exception as e:
+            print(f"Cursor filename: Error accessing ({e})")
+        
         print(f"Final candidates after filtering:")
         for i, candidate in enumerate(sorted(candidates, key=lambda w: w['distance_from_cursor'])):
             marker = "← SELECTED" if candidate == selected_word else ""
@@ -427,10 +439,12 @@ class CoreNavigationActions:
         """Start continuous navigation using arrow keys with extra step"""
         actions.user.navigate_continuously(target_text, highlight_image, False, None, True, action_button, 1, 0.1)
 
-    def navigate_to_word(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = 1, action_interval: float = 0.1) -> None:
+    def navigate_to_word(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = None, action_interval: float = None) -> None:
         """Navigate to any word found via OCR with configurable input method and action"""
-        # Always use configured highlight image from settings
+
         highlight_image = settings.get("user.highlight_image")
+        action_count = int(pathfinding_settings.default_action_button_count) if isinstance(pathfinding_settings.default_action_button_count, str) else pathfinding_settings.default_action_button_count
+        action_interval = settings.get("user.default_action_button_interval")
         
         # Determine input method
         if use_wasd is None:
@@ -466,3 +480,7 @@ class CoreNavigationActions:
     def navigate_to_word_wasd_with_action(word: str) -> None:
         """Navigate to any word found via OCR using WASD and press the configured action button"""
         actions.user.navigate_to_word(word, True, None, None, True)
+
+    def navigate_to_word_wasd_with_multiple_actions(word: str, count: int, interval: int) -> None:
+        """Navigate to any word found via OCR using WASD and press the configured action button multiple times"""
+        actions.user.navigate_to_word(word, True, None, settings.get("user.game_action_button"), False, count, interval)

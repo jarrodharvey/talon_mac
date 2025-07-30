@@ -130,7 +130,7 @@ key(=):
 
 ^quack: user.press_key_x_times("escape", 4, 2)
 
-^actions <number>$: user.change_gaming_setting("user.default_action_button_count", number)
+^actions <number>$: user.set_pathfinding_global_variable("default_action_button_count", number)
 
 {user.wasd_arrows} [<number>]: 
     user.press_key_x_times(user.wasd_arrows, number or 1, 0.5)

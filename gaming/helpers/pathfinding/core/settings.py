@@ -8,6 +8,9 @@ from talon import Module
 
 mod = Module()
 
+# Global variables for runtime modification
+default_action_button_count = 1
+
 # Navigation proximity settings
 mod.setting(
     "highlight_proximity_x",
@@ -104,3 +107,27 @@ mod.setting(
     default=0.6,
     desc="Similarity threshold for fuzzy text matching (0.0-1.0, higher = more strict)"
 )
+
+mod.setting(
+    "default_action_button_count",
+    type=int,
+    default=1,
+    desc="Default number of times to press the action button when selecting a menu item (e.g., 1 for single press, 2 for double press)"
+)
+
+mod.setting(
+    "default_action_button_interval",
+    type=int,
+    default=1,
+    desc="When there are multiple action button presses, the interval in seconds between each press (e.g., 1 second)"
+)
+
+@mod.action_class
+class Actions:
+    def set_pathfinding_global_variable(var_name: str, value: int):
+        """Set a pathfinding global variable for runtime configuration"""
+        if var_name == "default_action_button_count":
+            globals()["default_action_button_count"] = value
+            print(f"Set pathfinding {var_name} to {value}")
+        else:
+            print(f"Unknown pathfinding variable: {var_name}")
