@@ -24,9 +24,8 @@ except ImportError:
 
 mod = Module()
 
-# Basic homophones for common speech recognition errors (fallback if community system unavailable)
+# Essential fallback homophones (only when community system unavailable)
 BASIC_HOMOPHONES = {
-    # Common homophones
     "to": ["too", "two"],
     "too": ["to", "two"], 
     "two": ["to", "too"],
@@ -36,50 +35,7 @@ BASIC_HOMOPHONES = {
     "your": ["you're"],
     "you're": ["your"],
     "its": ["it's"],
-    "it's": ["its"],
-    
-    # Common speech recognition errors
-    "fire": ["file", "far", "fire"],
-    "file": ["fire", "file", "foil"],
-    "save": ["safe", "save"],
-    "safe": ["save", "safe"],
-    "click": ["quick", "click"],
-    "quick": ["click", "quick"],
-    "close": ["clothes", "close"],
-    "clothes": ["close", "clothes"],
-    "right": ["write", "right"],
-    "write": ["right", "write"],
-    "night": ["knight", "night"],
-    "knight": ["night", "knight"],
-    
-    # Gaming-specific terms
-    "attack": ["at tack", "attack"],
-    "magic": ["majic", "magic"],
-    "armor": ["armour", "armor"],
-    "armour": ["armor", "armour"],
-    "defense": ["defence", "defense"],
-    "defence": ["defense", "defence"],
-    "health": ["hells", "health"],
-    "mana": ["manna", "mana"],
-    "level": ["leval", "level"],
-    "skill": ["skil", "skill"],
-    "item": ["items", "item"],
-    "items": ["item", "items"],
-    "menu": ["menus", "menu"],
-    "back": ["bak", "back"],
-    "next": ["necks", "next"],
-    "exit": ["exits", "exit"],
-    "cancel": ["counsel", "cancel"],
-    "confirm": ["confirm", "confirmed"],
-    
-    # Numbers that get misheard
-    "one": ["won", "one"],
-    "won": ["one", "won"],
-    "four": ["for", "fore", "four"],
-    "for": ["four", "fore", "for"],
-    "fore": ["four", "for", "fore"],
-    "eight": ["ate", "eight"],
-    "ate": ["eight", "ate"]
+    "it's": ["its"]
 }
 
 # Global variable for text width tracking
