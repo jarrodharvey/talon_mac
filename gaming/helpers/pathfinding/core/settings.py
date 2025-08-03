@@ -104,7 +104,7 @@ mod.setting(
 mod.setting(
     "menu_fuzzy_threshold",
     type=float,
-    default=0.6,
+    default=0.9,
     desc="Similarity threshold for fuzzy text matching (0.0-1.0, higher = more strict)"
 )
 

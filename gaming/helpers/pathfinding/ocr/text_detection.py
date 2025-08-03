@@ -14,10 +14,19 @@ except ImportError:
     print("RapidFuzz not available - fuzzy matching disabled")
     RAPIDFUZZ_AVAILABLE = False
 
+# Import Jaro-Winkler for phonetic similarity (same as talon-gaze-ocr)
+try:
+    import jarowinkler
+    JAROWINKLER_AVAILABLE = True
+except ImportError:
+    print("Jaro-Winkler not available - phonetic matching disabled")
+    JAROWINKLER_AVAILABLE = False
+
 mod = Module()
 
 # Basic homophones for common speech recognition errors (fallback if community system unavailable)
 BASIC_HOMOPHONES = {
+    # Common homophones
     "to": ["too", "two"],
     "too": ["to", "two"], 
     "two": ["to", "too"],
@@ -27,7 +36,50 @@ BASIC_HOMOPHONES = {
     "your": ["you're"],
     "you're": ["your"],
     "its": ["it's"],
-    "it's": ["its"]
+    "it's": ["its"],
+    
+    # Common speech recognition errors
+    "fire": ["file", "far", "fire"],
+    "file": ["fire", "file", "foil"],
+    "save": ["safe", "save"],
+    "safe": ["save", "safe"],
+    "click": ["quick", "click"],
+    "quick": ["click", "quick"],
+    "close": ["clothes", "close"],
+    "clothes": ["close", "clothes"],
+    "right": ["write", "right"],
+    "write": ["right", "write"],
+    "night": ["knight", "night"],
+    "knight": ["night", "knight"],
+    
+    # Gaming-specific terms
+    "attack": ["at tack", "attack"],
+    "magic": ["majic", "magic"],
+    "armor": ["armour", "armor"],
+    "armour": ["armor", "armour"],
+    "defense": ["defence", "defense"],
+    "defence": ["defense", "defence"],
+    "health": ["hells", "health"],
+    "mana": ["manna", "mana"],
+    "level": ["leval", "level"],
+    "skill": ["skil", "skill"],
+    "item": ["items", "item"],
+    "items": ["item", "items"],
+    "menu": ["menus", "menu"],
+    "back": ["bak", "back"],
+    "next": ["necks", "next"],
+    "exit": ["exits", "exit"],
+    "cancel": ["counsel", "cancel"],
+    "confirm": ["confirm", "confirmed"],
+    
+    # Numbers that get misheard
+    "one": ["won", "one"],
+    "won": ["one", "won"],
+    "four": ["for", "fore", "four"],
+    "for": ["four", "fore", "for"],
+    "fore": ["four", "for", "fore"],
+    "eight": ["ate", "eight"],
+    "ate": ["eight", "ate"]
 }
 
 # Global variable for text width tracking
@@ -51,10 +103,7 @@ def normalize_text_for_fuzzy_matching(text: str) -> str:
     return text.lower().replace("\u2019", "'")
 
 def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) -> float:
-    """Score a word using fuzzy matching with community homophone support"""
-    if not RAPIDFUZZ_AVAILABLE:
-        return 0.0
-        
+    """Score a word using multi-algorithm fuzzy matching with enhanced homophone support"""
     candidate_normalized = normalize_text_for_fuzzy_matching(candidate_text)
     target_normalized = normalize_text_for_fuzzy_matching(target_text)
     
@@ -66,26 +115,60 @@ def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) ->
     if target_normalized not in homophones_normalized:
         homophones_normalized.append(target_normalized)
     
-    # Try matching against all homophones, return best score
     best_score = 0.0
+    best_method = None
     best_homophone = None
     
+    # Try each homophone with multiple algorithms
     for homophone in homophones_normalized:
-        try:
-            score = fuzz.ratio(
-                homophone,
-                candidate_normalized,
-                score_cutoff=threshold / 2 * 100  # Initial cutoff at 50% of threshold
-            )
-            if score > best_score * 100:  # Convert back to compare
-                best_score = score / 100.0
-                best_homophone = homophone
-        except Exception as e:
-            print(f"Fuzzy matching error for '{homophone}' vs '{candidate_normalized}': {e}")
-            continue
+        # 1. Exact match (highest priority)
+        if candidate_normalized == homophone:
+            print(f"    EXACT match: '{candidate_normalized}' == '{homophone}' = 1.00")
+            return 1.0
+        
+        # 2. Jaro-Winkler similarity (excellent for phonetic matching like fire/file)
+        if JAROWINKLER_AVAILABLE:
+            try:
+                jw_score = jarowinkler.jarowinkler_similarity(candidate_normalized, homophone)
+                if jw_score > best_score and jw_score >= 0.75:  # Stricter threshold for phonetic to avoid false positives
+                    best_score = jw_score
+                    best_method = f"Jaro-Winkler vs '{homophone}'"
+                    best_homophone = homophone
+            except Exception as e:
+                print(f"Jaro-Winkler error for '{homophone}' vs '{candidate_normalized}': {e}")
+        
+        # 3. RapidFuzz algorithms (if available)
+        if RAPIDFUZZ_AVAILABLE:
+            try:
+                # Standard ratio
+                ratio_score = fuzz.ratio(homophone, candidate_normalized) / 100.0
+                if ratio_score > best_score and ratio_score >= threshold:
+                    best_score = ratio_score
+                    best_method = f"Ratio vs '{homophone}'"
+                    best_homophone = homophone
+                
+                # Partial ratio (good for substring matching)
+                partial_score = fuzz.partial_ratio(homophone, candidate_normalized) / 100.0
+                if partial_score > best_score and partial_score >= threshold:
+                    best_score = partial_score
+                    best_method = f"Partial ratio vs '{homophone}'"
+                    best_homophone = homophone
+                
+                # Token sort ratio (good for word order independence)
+                token_score = fuzz.token_sort_ratio(homophone, candidate_normalized) / 100.0
+                if token_score > best_score and token_score >= threshold:
+                    best_score = token_score
+                    best_method = f"Token sort vs '{homophone}'"
+                    best_homophone = homophone
+                    
+            except Exception as e:
+                print(f"RapidFuzz error for '{homophone}' vs '{candidate_normalized}': {e}")
     
-    if best_homophone and best_score > 0:
-        print(f"    Best match: homophone '{best_homophone}' vs candidate '{candidate_normalized}' = {best_score:.2f}")
+    # Debug logging
+    if best_score > 0 and best_method:
+        print(f"    Best fuzzy match: {best_method} = {best_score:.3f}")
+    elif len(homophones_normalized) > 1:
+        print(f"    No fuzzy matches above threshold {threshold:.2f} for '{candidate_normalized}' vs homophones {homophones_normalized}")
     
     return best_score
 
