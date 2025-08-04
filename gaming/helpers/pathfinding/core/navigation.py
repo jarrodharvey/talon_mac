@@ -5,9 +5,12 @@ Contains the main navigation algorithms including step-by-step navigation,
 continuous navigation, and navigation mode handling.
 """
 
-from talon import Module, actions, settings, cron
+from talon import Module, actions, settings, cron, screen
+from talon.canvas import Canvas
+from talon.skia.typeface import Fontstyle, Typeface
 from ..utils.action_helpers import press_action_button_multiple
 from . import settings as pathfinding_settings
+import numpy as np
 
 mod = Module()
 
@@ -16,6 +19,97 @@ navigation_job = None
 navigation_steps_taken = 0
 last_direction_pressed = None
 cursor_position_history = []
+
+# Global variables for disambiguation
+disambiguation_canvas = None
+ambiguous_matches = None
+disambiguation_generator = None
+
+# Add disambiguation mode
+mod.mode("gaming_pathfinding_disambiguation")
+
+def has_light_background(screenshot):
+    """Determine if screenshot has light background for color selection"""
+    array = np.array(screenshot)
+    grayscale = 0.299 * array[:, :, 0] + 0.587 * array[:, :, 1] + 0.114 * array[:, :, 2]
+    return np.mean(grayscale) > 128
+
+def get_debug_color(has_light_bg: bool):
+    """Get appropriate color for debug display based on background"""
+    return "000000" if has_light_bg else "FFFFFF"
+
+def reset_disambiguation():
+    """Reset disambiguation state and hide any active UI"""
+    global ambiguous_matches, disambiguation_generator, disambiguation_canvas
+    ambiguous_matches = None
+    disambiguation_generator = None
+    hide_canvas = disambiguation_canvas
+    if disambiguation_canvas:
+        disambiguation_canvas.close()
+        disambiguation_canvas = None
+    if hide_canvas:
+        # Ensure canvas doesn't interfere with subsequent screenshots
+        actions.sleep("10ms")
+
+def show_disambiguation():
+    """Show numbered options over ambiguous matches"""
+    global ambiguous_matches, disambiguation_canvas
+    
+    def on_draw(c):
+        if not ambiguous_matches:
+            return
+            
+        # Get OCR controller for screenshot
+        import sys
+        gaze_ocr_controller = None
+        for module_name, module in sys.modules.items():
+            if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                gaze_ocr_controller = module.gaze_ocr_controller
+                break
+        
+        if not gaze_ocr_controller:
+            return
+            
+        contents = gaze_ocr_controller.latest_screen_contents()
+        debug_color = get_debug_color(has_light_background(contents.screenshot))
+        
+        used_locations = set()
+        for i, match in enumerate(ambiguous_matches):
+            # Make nearest match bold (though we don't have cursor selection like gaze-ocr)
+            c.paint.typeface = Typeface.from_name("", Fontstyle.new(weight=700, width=5))
+            c.paint.textsize = max(20, 15)  # Larger than gaze-ocr for gaming
+            c.paint.style = c.paint.Style.FILL
+            c.paint.color = debug_color
+            
+            # Get coordinates from match
+            coords = match.get('coords', (0, 0))
+            location = (coords[0], coords[1])
+            
+            # Avoid overlapping numbers
+            while location in used_locations:
+                location = (location[0] + 20, location[1])
+            used_locations.add(location)
+            
+            c.draw_text(str(i + 1), *location)
+    
+    actions.mode.enable("user.gaming_pathfinding_disambiguation")
+    if disambiguation_canvas:
+        disambiguation_canvas.close()
+    disambiguation_canvas = Canvas.from_screen(screen.main())
+    disambiguation_canvas.register("draw", on_draw)
+    disambiguation_canvas.freeze()
+
+def begin_generator(generator):
+    """Start a generator that may require disambiguation"""
+    global ambiguous_matches, disambiguation_generator
+    reset_disambiguation()
+    try:
+        ambiguous_matches = next(generator)
+        disambiguation_generator = generator
+        show_disambiguation()
+    except StopIteration:
+        # Execution completed without need for disambiguation
+        pass
 
 def find_currently_selected_word(cursor_pos):
     """Find the currently selected word by looking for text to the RIGHT of cursor position"""
@@ -143,8 +237,12 @@ def find_currently_selected_word(cursor_pos):
 
 @mod.action_class
 class CoreNavigationActions:
-    def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1) -> bool:
-        """Single navigation step - check proximity and move if needed"""
+    def navigate_step(target_text: str, highlight_image: str, use_wasd: bool, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1, target_coords: tuple = None) -> bool:
+        """Single navigation step - check proximity and move if needed
+        
+        Args:
+            target_coords: Optional pre-resolved coordinates (x, y). If provided, skips text detection.
+        """
         global navigation_steps_taken, last_direction_pressed, cursor_position_history
         
         # Check navigation mode - use grid navigation if enabled
@@ -155,12 +253,16 @@ class CoreNavigationActions:
         # No step limits for main navigation
             
         try:
-            # Get current coordinates
-            text_coords = actions.user.get_text_coordinates(target_text)
-            if not text_coords:
-                print(f"Could not find text: {target_text}")
-                actions.user.stop_continuous_navigation()
-                return False
+            # Get current coordinates - use pre-resolved coordinates if provided
+            if target_coords:
+                text_coords = target_coords
+                print(f"Using pre-resolved coordinates for '{target_text}': {text_coords}")
+            else:
+                text_coords = actions.user.get_text_coordinates(target_text)
+                if not text_coords:
+                    print(f"Could not find text: {target_text}")
+                    actions.user.stop_continuous_navigation()
+                    return False
 
             # Try flexible cursor detection first (game-specific cursors), fall back to standard method
             highlight_center = actions.user.find_cursor_flexible()
@@ -211,8 +313,10 @@ class CoreNavigationActions:
                         # Check if we're already at the closest position
                         distance_to_closest = actions.user.calculate_distance(highlight_center, closest_position)
                         
-                        if distance_to_closest <= 30:  # Within 30px of closest position
-                            print(f"TIEBREAKER SUCCESS: At closest reachable position to target!")
+                        # Use more lenient distance threshold for disambiguation targets
+                        tiebreaker_threshold = 50 if target_coords else 30
+                        if distance_to_closest <= tiebreaker_threshold:
+                            print(f"TIEBREAKER SUCCESS: At closest reachable position to target! (within {tiebreaker_threshold}px)")
                             print(f"Current: {highlight_center}, Closest position: {closest_position}, Target: {text_coords}")
                             if action_button:
                                 print(f"Pressing action button: {action_button}")
@@ -258,6 +362,13 @@ class CoreNavigationActions:
             # Get configurable proximity settings
             proximity_x = settings.get("user.highlight_proximity_x")
             proximity_y = settings.get("user.highlight_proximity_y")
+            
+            # Use more lenient proximity thresholds when using pre-resolved coordinates (disambiguation)
+            if target_coords:
+                # Increase proximity thresholds by 50% for disambiguation targets
+                proximity_x = int(proximity_x * 1.5)
+                proximity_y = int(proximity_y * 1.5)
+                print(f"Using relaxed proximity for disambiguation: {proximity_x}x{proximity_y}px")
             
             print(f"Direction calculation - X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}")
             print(f"Proximity check (cursor) - X diff: {cursor_x_diff:.1f}, Y diff: {cursor_y_diff:.1f}")
@@ -379,8 +490,12 @@ class CoreNavigationActions:
             actions.user.stop_continuous_navigation()
             return False
 
-    def start_continuous_navigation(target_text: str, highlight_image: str, use_wasd: bool = False, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1) -> None:
-        """Start continuous navigation with cron job until target reached or game_stop called"""
+    def start_continuous_navigation(target_text: str, highlight_image: str, use_wasd: bool = False, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1, target_coords: tuple = None) -> None:
+        """Start continuous navigation with cron job until target reached or game_stop called
+        
+        Args:
+            target_coords: Optional pre-resolved coordinates (x, y). If provided, skips text detection.
+        """
         global navigation_job, navigation_steps_taken, last_direction_pressed, cursor_position_history
         
         # Stop any existing navigation
@@ -400,7 +515,7 @@ class CoreNavigationActions:
         
         def safe_navigate_step():
             try:
-                return actions.user.navigate_step(target_text, highlight_image, use_wasd, max_steps, extra_step, action_button, action_count, action_interval)
+                return actions.user.navigate_step(target_text, highlight_image, use_wasd, max_steps, extra_step, action_button, action_count, action_interval, target_coords)
             except Exception as e:
                 print(f"Navigation step error (continuing): {str(e)}")
                 return False  # Continue navigation despite errors
@@ -441,7 +556,7 @@ class CoreNavigationActions:
 
     def navigate_to_word(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = None, action_interval: float = None) -> None:
         """Navigate to any word found via OCR with configurable input method and action"""
-
+        
         highlight_image = settings.get("user.highlight_image")
         action_count = int(pathfinding_settings.default_action_button_count) if isinstance(pathfinding_settings.default_action_button_count, str) else pathfinding_settings.default_action_button_count
         action_interval = settings.get("user.default_action_button_interval")
@@ -460,13 +575,16 @@ class CoreNavigationActions:
         if use_configured_action:
             action_button = settings.get("user.game_action_button")
         
-        # Print appropriate message
-        if action_button:
-            print(f"Navigating to word: '{target_text}' and selecting with '{action_button}'")
+        # Check if disambiguation is needed by checking if multiple matches exist
+        needs_disambiguation = actions.user.check_if_disambiguation_needed(target_text)
+        
+        if needs_disambiguation:
+            print(f"Multiple matches detected for '{target_text}', using disambiguation")
+            begin_generator(actions.user.navigate_to_word_generator(word, use_wasd, max_steps, action_button, use_configured_action, action_count, action_interval))
         else:
-            print(f"Navigating to word: '{target_text}' using configurable navigation system")
-            
-        actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button, action_count, action_interval)
+            print(f"Single match or no matches for '{target_text}', using original navigation flow")
+            # Use original flow for single matches (no disambiguation needed)
+            actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button, action_count, action_interval)
 
     def navigate_to_word_with_action(word: object):
         """Navigate to word using configured input method and press configured action button"""
@@ -484,3 +602,85 @@ class CoreNavigationActions:
     def navigate_to_word_wasd_with_multiple_actions(word: str, count: int, interval: int) -> None:
         """Navigate to any word found via OCR using WASD and press the configured action button multiple times"""
         actions.user.navigate_to_word(word, True, None, settings.get("user.game_action_button"), False, count, interval)
+
+    def navigate_to_word_generator(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = None, action_interval: float = None):
+        """Generator version of navigate_to_word that supports disambiguation"""
+        
+        highlight_image = settings.get("user.highlight_image")
+        action_count = int(pathfinding_settings.default_action_button_count) if isinstance(pathfinding_settings.default_action_button_count, str) else pathfinding_settings.default_action_button_count
+        action_interval = settings.get("user.default_action_button_interval")
+        
+        # Determine input method
+        if use_wasd is None:
+            use_wasd = settings.get("user.uses_wasd")
+        
+        # Convert word to proper case for search
+        if hasattr(word, 'text'):
+            target_text = word.text.capitalize()
+        else:
+            target_text = str(word).capitalize()
+        
+        # Use configured action button if requested
+        if use_configured_action:
+            action_button = settings.get("user.game_action_button")
+        
+        # Get text coordinates using generator (supports disambiguation)
+        target_coords = yield from actions.user.get_text_coordinates_generator(target_text, disambiguate=True)
+        
+        if not target_coords:
+            print(f"Could not find text: {target_text}")
+            return False
+        
+        print(f"Navigating to word: '{target_text}' at {target_coords}")
+        
+        # Use the existing continuous navigation system with pre-resolved coordinates
+        actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, False, action_button, action_count, action_interval, target_coords)
+        
+        return True
+
+    def choose_pathfinding_option(index: int):
+        """Disambiguate with the provided index (called from talon command)"""
+        global ambiguous_matches, disambiguation_generator, disambiguation_canvas
+        
+        if (
+            not ambiguous_matches
+            or not disambiguation_generator
+            or not disambiguation_canvas
+        ):
+            raise RuntimeError("Disambiguation not active")
+        
+        actions.mode.disable("user.gaming_pathfinding_disambiguation")
+        disambiguation_canvas.close()
+        disambiguation_canvas = None
+        
+        # Give the canvas a moment to disappear
+        actions.sleep("10ms")
+        
+        # Send the chosen match back to the generator
+        match = ambiguous_matches[index - 1]
+        try:
+            ambiguous_matches = disambiguation_generator.send(match)
+            if ambiguous_matches:
+                # More disambiguation needed
+                show_disambiguation()
+            else:
+                # Completed successfully
+                reset_disambiguation()
+        except StopIteration:
+            # Execution completed successfully
+            reset_disambiguation()
+
+    def hide_pathfinding_options():
+        """Hide the disambiguation UI"""
+        actions.mode.disable("user.gaming_pathfinding_disambiguation")
+        reset_disambiguation()
+
+
+    def get_disambiguation_state():
+        """Debug function to check disambiguation state"""
+        global ambiguous_matches, disambiguation_generator, disambiguation_canvas
+        return {
+            'matches': len(ambiguous_matches) if ambiguous_matches else 0,
+            'generator_active': disambiguation_generator is not None,
+            'canvas_active': disambiguation_canvas is not None
+        }

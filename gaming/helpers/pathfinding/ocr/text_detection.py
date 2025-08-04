@@ -281,3 +281,265 @@ class OCRTextDetectionActions:
             print(f"Error getting text coordinates: {str(e)}")
             actions.user.connect_ocr_eye_tracker()
             return None
+
+    def check_if_disambiguation_needed(target_text: str) -> bool:
+        """Check if multiple matches exist for the target text without doing full disambiguation"""
+        try:
+            # Disconnect eye tracker to scan full screen
+            actions.user.disconnect_ocr_eye_tracker()
+            
+            # Try different approaches to access the OCR controller
+            import sys
+            gaze_ocr_controller = None
+            
+            # Method 1: Check sys.modules for loaded gaze_ocr_talon
+            for module_name, module in sys.modules.items():
+                if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                    gaze_ocr_controller = module.gaze_ocr_controller
+                    break
+            
+            if gaze_ocr_controller:
+                # Trigger OCR scan without overlay
+                gaze_ocr_controller.read_nearby()
+                
+                # Get the latest screen contents
+                contents = gaze_ocr_controller.latest_screen_contents()
+                
+                # Count matches
+                text_matches = []
+                all_words = []
+                
+                for line_idx, line in enumerate(contents.result.lines):
+                    for word_idx, word in enumerate(line.words):
+                        # Store word for potential fuzzy matching
+                        word_info = {
+                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'text': word.text,
+                            'width': word.width,
+                            'height': word.height,
+                            'line': line_idx,
+                            'word': word_idx
+                        }
+                        all_words.append(word_info)
+                        
+                        # Try exact matching first
+                        if target_text.lower() in word.text.lower():
+                            text_matches.append(word_info)
+                
+                # Check fuzzy matching if no exact matches
+                if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                    
+                    for word_info in all_words:
+                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                        if score >= fuzzy_threshold:
+                            text_matches.append(word_info)
+                
+                # Reconnect eye tracker
+                actions.user.connect_ocr_eye_tracker()
+                
+                # Return True if more than one match
+                result = len(text_matches) > 1
+                print(f"Disambiguation check for '{target_text}': {len(text_matches)} matches found, needs_disambiguation={result}")
+                return result
+            else:
+                print("Could not find gaze_ocr_controller for disambiguation check")
+                # Reconnect eye tracker
+                actions.user.connect_ocr_eye_tracker()
+                return False
+            
+        except Exception as e:
+            print(f"Error checking disambiguation need: {str(e)}")
+            actions.user.connect_ocr_eye_tracker()
+            return False
+
+    def get_text_coordinates_generator(target_text: str, disambiguate: bool = True):
+        """Generator version that yields multiple matches for disambiguation"""
+        try:
+            # Disconnect eye tracker to scan full screen
+            actions.user.disconnect_ocr_eye_tracker()
+            
+            # Try different approaches to access the OCR controller
+            import sys
+            gaze_ocr_controller = None
+            
+            # Method 1: Check sys.modules for loaded gaze_ocr_talon
+            for module_name, module in sys.modules.items():
+                if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                    gaze_ocr_controller = module.gaze_ocr_controller
+                    break
+            
+            if gaze_ocr_controller:
+                # Trigger OCR scan without overlay
+                gaze_ocr_controller.read_nearby()
+                
+                # Get the latest screen contents
+                contents = gaze_ocr_controller.latest_screen_contents()
+                
+                # Search for the target text
+                text_matches = []
+                all_words = []
+                
+                for line_idx, line in enumerate(contents.result.lines):
+                    for word_idx, word in enumerate(line.words):
+                        # Store word for potential fuzzy matching
+                        word_info = {
+                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'text': word.text,
+                            'width': word.width,
+                            'height': word.height,
+                            'line': line_idx,
+                            'word': word_idx
+                        }
+                        all_words.append(word_info)
+                        
+                        # Try exact matching first
+                        if target_text.lower() in word.text.lower():
+                            text_matches.append(word_info)
+                
+                # If exact matches found, use them
+                if text_matches:
+                    print(f"Found {len(text_matches)} exact matches for '{target_text}'")
+                elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                    # Try fuzzy matching as fallback
+                    print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                    fuzzy_matches = []
+                    
+                    for word_info in all_words:
+                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                        if score >= fuzzy_threshold:
+                            word_info['fuzzy_score'] = score
+                            fuzzy_matches.append(word_info)
+                    
+                    if fuzzy_matches:
+                        # Sort by score (best first) and use fuzzy matches
+                        fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                        text_matches = fuzzy_matches
+                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                
+                if text_matches:
+                    if len(text_matches) == 1:
+                        # Single match - return coordinates directly
+                        match = text_matches[0]
+                        print(f"Found single '{target_text}' at center coordinates: {match['coords']}")
+                        actions.user.connect_ocr_eye_tracker()
+                        return match['coords']
+                    elif disambiguate:
+                        # Multiple matches - yield for disambiguation
+                        print(f"Found {len(text_matches)} instances of '{target_text}', requiring disambiguation")
+                        for i, match in enumerate(text_matches):
+                            print(f"  {i+1}. '{match['text']}' at {match['coords']}")
+                        
+                        # Yield matches and wait for user selection
+                        chosen_match = yield text_matches
+                        print(f"User chose match: '{chosen_match['text']}' at {chosen_match['coords']}")
+                        actions.user.connect_ocr_eye_tracker()
+                        return chosen_match['coords']
+                    else:
+                        # Multiple matches but no disambiguation - use closest to cursor
+                        cursor_pos = actions.user.find_cursor_flexible()
+                        if cursor_pos:
+                            best_match = None
+                            min_distance = float('inf')
+                            
+                            for match in text_matches:
+                                distance = actions.user.calculate_distance(cursor_pos, match['coords'])
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    best_match = match
+                            
+                            if best_match:
+                                print(f"Selected closest '{target_text}' at {best_match['coords']} (distance: {min_distance:.1f}px)")
+                                actions.user.connect_ocr_eye_tracker()
+                                return best_match['coords']
+                        else:
+                            # No cursor found, use first match
+                            match = text_matches[0]
+                            print(f"No cursor found, using first '{target_text}' at {match['coords']}")
+                            actions.user.connect_ocr_eye_tracker()
+                            return match['coords']
+                
+                print(f"Text '{target_text}' not found in OCR results")
+            else:
+                print("Could not find gaze_ocr_controller via any method")
+            
+            # Reconnect eye tracker
+            actions.user.connect_ocr_eye_tracker()
+            return None
+            
+        except Exception as e:
+            print(f"Error getting text coordinates: {str(e)}")
+            actions.user.connect_ocr_eye_tracker()
+            return None
+
+    def check_if_disambiguation_needed(target_text: str) -> bool:
+        """Check if multiple matches exist for the target text without doing full disambiguation"""
+        try:
+            # Disconnect eye tracker to scan full screen
+            actions.user.disconnect_ocr_eye_tracker()
+            
+            # Try different approaches to access the OCR controller
+            import sys
+            gaze_ocr_controller = None
+            
+            # Method 1: Check sys.modules for loaded gaze_ocr_talon
+            for module_name, module in sys.modules.items():
+                if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
+                    gaze_ocr_controller = module.gaze_ocr_controller
+                    break
+            
+            if gaze_ocr_controller:
+                # Trigger OCR scan without overlay
+                gaze_ocr_controller.read_nearby()
+                
+                # Get the latest screen contents
+                contents = gaze_ocr_controller.latest_screen_contents()
+                
+                # Count matches
+                text_matches = []
+                all_words = []
+                
+                for line_idx, line in enumerate(contents.result.lines):
+                    for word_idx, word in enumerate(line.words):
+                        # Store word for potential fuzzy matching
+                        word_info = {
+                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'text': word.text,
+                            'width': word.width,
+                            'height': word.height,
+                            'line': line_idx,
+                            'word': word_idx
+                        }
+                        all_words.append(word_info)
+                        
+                        # Try exact matching first
+                        if target_text.lower() in word.text.lower():
+                            text_matches.append(word_info)
+                
+                # Check fuzzy matching if no exact matches
+                if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                    
+                    for word_info in all_words:
+                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                        if score >= fuzzy_threshold:
+                            text_matches.append(word_info)
+                
+                # Reconnect eye tracker
+                actions.user.connect_ocr_eye_tracker()
+                
+                # Return True if more than one match
+                result = len(text_matches) > 1
+                print(f"Disambiguation check for '{target_text}': {len(text_matches)} matches found, needs_disambiguation={result}")
+                return result
+            else:
+                print("Could not find gaze_ocr_controller for disambiguation check")
+                # Reconnect eye tracker
+                actions.user.connect_ocr_eye_tracker()
+                return False
+            
+        except Exception as e:
+            print(f"Error checking disambiguation need: {str(e)}")
+            actions.user.connect_ocr_eye_tracker()
+            return False
