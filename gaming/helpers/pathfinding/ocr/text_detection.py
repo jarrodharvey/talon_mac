@@ -238,8 +238,11 @@ class OCRTextDetectionActions:
                         actions.user.connect_ocr_eye_tracker()
                         return match['coords']
                     else:
+                        # Sort by position for consistent ordering (top-to-bottom, left-to-right)
+                        text_matches.sort(key=lambda m: (m['coords'][1], m['coords'][0]))
+                        
                         # Multiple matches - pick closest to current cursor
-                        print(f"Found {len(text_matches)} instances of '{target_text}':")
+                        print(f"Found {len(text_matches)} instances of '{target_text}' (sorted by position):")
                         for i, match in enumerate(text_matches):
                             print(f"  {i+1}. '{match['text']}' at {match['coords']} (Line {match['line']}, Word {match['word']})")
                         
@@ -313,7 +316,7 @@ class OCRTextDetectionActions:
                     for word_idx, word in enumerate(line.words):
                         # Store word for potential fuzzy matching
                         word_info = {
-                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'coords': (word.left, word.top + word.height // 2),
                             'text': word.text,
                             'width': word.width,
                             'height': word.height,
@@ -355,6 +358,7 @@ class OCRTextDetectionActions:
 
     def get_text_coordinates_generator(target_text: str, disambiguate: bool = True):
         """Generator version that yields multiple matches for disambiguation"""
+        print(f"GENERATOR DEBUG: get_text_coordinates_generator called with target='{target_text}', disambiguate={disambiguate}")
         try:
             # Disconnect eye tracker to scan full screen
             actions.user.disconnect_ocr_eye_tracker()
@@ -384,7 +388,7 @@ class OCRTextDetectionActions:
                     for word_idx, word in enumerate(line.words):
                         # Store word for potential fuzzy matching
                         word_info = {
-                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'coords': (word.left, word.top + word.height // 2),
                             'text': word.text,
                             'width': word.width,
                             'height': word.height,
@@ -416,7 +420,9 @@ class OCRTextDetectionActions:
                         # Sort by score (best first) and use fuzzy matches
                         fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
                         text_matches = fuzzy_matches
-                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                        # Log the best score before any re-sorting
+                        best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
+                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {best_score:.2f})")
                 
                 if text_matches:
                     if len(text_matches) == 1:
@@ -426,16 +432,58 @@ class OCRTextDetectionActions:
                         actions.user.connect_ocr_eye_tracker()
                         return match['coords']
                     elif disambiguate:
+                        # Sort by position for disambiguation (top-to-bottom, left-to-right)
+                        text_matches.sort(key=lambda m: (m['coords'][1], m['coords'][0]))
+                        
                         # Multiple matches - yield for disambiguation
-                        print(f"Found {len(text_matches)} instances of '{target_text}', requiring disambiguation")
+                        print(f"Found {len(text_matches)} instances of '{target_text}', requiring disambiguation (sorted by position)")
                         for i, match in enumerate(text_matches):
                             print(f"  {i+1}. '{match['text']}' at {match['coords']}")
                         
                         # Yield matches and wait for user selection
                         chosen_match = yield text_matches
                         print(f"User chose match: '{chosen_match['text']}' at {chosen_match['coords']}")
-                        actions.user.connect_ocr_eye_tracker()
-                        return chosen_match['coords']
+                        print(f"SIMPLE_DEBUG: Coordinate fix starting now!")
+                        
+                        # CRITICAL FIX: The chosen_match contains NUMBER coordinates, not target word coordinates
+                        # Find the actual target word closest to the selected number position
+                        selected_number_coords = chosen_match['coords']
+                        print(f"COORDINATE FIX: Selected number at {selected_number_coords}, finding closest '{target_text}' word")
+                        
+                        # Find closest target word to the selected number
+                        closest_word = None
+                        min_distance = float('inf')
+                        
+                        for match in text_matches:
+                            # Calculate distance from number position to this word instance
+                            word_coords = match['coords']
+                            distance = actions.user.calculate_distance(selected_number_coords, word_coords)
+                            print(f"  Distance from selected number {selected_number_coords} to '{match['text']}' at {word_coords}: {distance:.1f}px")
+                            
+                            if distance < min_distance:
+                                min_distance = distance
+                                closest_word = match
+                        
+                        if closest_word:
+                            actual_target_coords = closest_word['coords']
+                            print(f"COORDINATE FIX: Using closest word '{closest_word['text']}' at {actual_target_coords} (distance: {min_distance:.1f}px)")
+                            
+                            # Trace the coordinate fix
+                            from ..debug.coordinate_tracer import coord_tracer
+                            coord_tracer.log_event('fixed', actual_target_coords, 'coordinate_fix', {
+                                'original_number_coords': selected_number_coords,
+                                'fixed_word_coords': actual_target_coords,
+                                'word_text': closest_word['text'],
+                                'distance': min_distance
+                            })
+                            
+                            actions.user.connect_ocr_eye_tracker()
+                            return actual_target_coords
+                        else:
+                            # Fallback to chosen match if something goes wrong
+                            print("COORDINATE FIX: Warning - couldn't find closest word, using selected match")
+                            actions.user.connect_ocr_eye_tracker()
+                            return chosen_match['coords']
                     else:
                         # Multiple matches but no disambiguation - use closest to cursor
                         cursor_pos = actions.user.find_cursor_flexible()
@@ -504,7 +552,7 @@ class OCRTextDetectionActions:
                     for word_idx, word in enumerate(line.words):
                         # Store word for potential fuzzy matching
                         word_info = {
-                            'coords': (word.left + word.width // 2, word.top + word.height // 2),
+                            'coords': (word.left, word.top + word.height // 2),
                             'text': word.text,
                             'width': word.width,
                             'height': word.height,

@@ -73,10 +73,18 @@ def show_disambiguation():
             coords = match.get('coords', (0, 0))
             location = (coords[0], coords[1])
             
+            # DEBUG: Log number positioning
+            print(f"DEBUG NUMBER POSITIONING: Option {i+1} text='{match.get('text', 'UNKNOWN')}' original_coords={coords} display_location={location}")
+            
             # Avoid overlapping numbers
+            original_location = location
             while location in used_locations:
                 location = (location[0] + 20, location[1])
             used_locations.add(location)
+            
+            # DEBUG: Log if location changed due to overlap
+            if location != original_location:
+                print(f"DEBUG NUMBER POSITIONING: Option {i+1} moved from {original_location} to {location} due to overlap")
             
             number_text = str(i + 1)
             
@@ -316,6 +324,7 @@ class CoreNavigationActions:
                         tiebreaker_threshold = 50 if target_coords else 30
                         if distance_to_closest <= tiebreaker_threshold:
                             print(f"TIEBREAKER SUCCESS: At closest reachable position to target! (within {tiebreaker_threshold}px)")
+                            print(f"TIEBREAKER DEBUG: Current: {closest_position}, Target: {text_coords} - Distance: {closest_distance:.1f}px")
                             print(f"Current: {highlight_center}, Closest position: {closest_position}, Target: {text_coords}")
                             if action_button:
                                 print(f"Pressing action button: {action_button}")
@@ -362,12 +371,9 @@ class CoreNavigationActions:
             proximity_x = settings.get("user.highlight_proximity_x")
             proximity_y = settings.get("user.highlight_proximity_y")
             
-            # Use more lenient proximity thresholds when using pre-resolved coordinates (disambiguation)
+            # Proximity thresholds no longer need adjustment for disambiguation (coordinate bug fixed)
             if target_coords:
-                # Increase proximity thresholds by 25% for disambiguation targets
-                proximity_x = int(proximity_x * 1.25)
-                proximity_y = int(proximity_y * 1.25)
-                print(f"Using relaxed proximity for disambiguation: {proximity_x}x{proximity_y}px")
+                print(f"Using standard proximity for disambiguation: {proximity_x}x{proximity_y}px")
             
             print(f"Direction calculation - X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}")
             print(f"Proximity check (cursor) - X diff: {cursor_x_diff:.1f}, Y diff: {cursor_y_diff:.1f}")
@@ -604,6 +610,9 @@ class CoreNavigationActions:
 
     def navigate_to_word_generator(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = None, action_interval: float = None):
         """Generator version of navigate_to_word that supports disambiguation"""
+        print(f"STACK_TRACE: navigate_to_word_generator ENTERED with word='{word}'")
+        import traceback
+        print(f"STACK_TRACE: Call stack:\n{''.join(traceback.format_stack()[-3:-1])}")
         
         highlight_image = settings.get("user.highlight_image")
         action_count = int(pathfinding_settings.default_action_button_count) if isinstance(pathfinding_settings.default_action_button_count, str) else pathfinding_settings.default_action_button_count
@@ -623,8 +632,14 @@ class CoreNavigationActions:
         if use_configured_action:
             action_button = settings.get("user.game_action_button")
         
-        # Get text coordinates using generator (supports disambiguation)
+        # Get text coordinates using generator (supports disambiguation)  
+        from ..debug.coordinate_tracer import coord_tracer
+        coord_tracer.log_event('request', None, 'navigate_to_word_generator', {'target_text': target_text})
+        
         target_coords = yield from actions.user.get_text_coordinates_generator(target_text, disambiguate=True)
+        
+        if target_coords:
+            coord_tracer.log_event('received', target_coords, 'get_text_coordinates_generator', {'target_text': target_text})
         
         if not target_coords:
             print(f"Could not find text: {target_text}")
@@ -639,6 +654,7 @@ class CoreNavigationActions:
 
     def choose_pathfinding_option(index: int):
         """Disambiguate with the provided index (called from talon command)"""
+        print("FUNCTION_ENTRY: choose_pathfinding_option called!")
         global ambiguous_matches, disambiguation_generator, disambiguation_canvas
         
         if (
@@ -648,6 +664,10 @@ class CoreNavigationActions:
         ):
             raise RuntimeError("Disambiguation not active")
         
+        print(f"DEBUG CHOOSE: Available options ({len(ambiguous_matches)} total):")
+        for i, match in enumerate(ambiguous_matches):
+            print(f"  Option {i+1}: '{match.get('text', 'UNKNOWN')}' at {match.get('coords', 'NO_COORDS')}")
+        
         actions.mode.disable("user.gaming_pathfinding_disambiguation")
         disambiguation_canvas.close()
         disambiguation_canvas = None
@@ -656,7 +676,37 @@ class CoreNavigationActions:
         actions.sleep("10ms")
         
         # Send the chosen match back to the generator
-        match = ambiguous_matches[index - 1]
+        selected_match = ambiguous_matches[index - 1]
+        print(f"DEBUG CHOOSE: Selected option {index}, match: '{selected_match.get('text', 'UNKNOWN')}' at {selected_match.get('coords', 'NO_COORDS')}")
+        print(f"DEBUG CHOOSE: Full match data: {selected_match}")
+        
+        # COORDINATE FIX: Find the actual target word closest to the selected number position
+        selected_number_coords = selected_match.get('coords')
+        target_text = selected_match.get('text', 'UNKNOWN')
+        print(f"COORDINATE_FIX: Selected number at {selected_number_coords}, finding closest '{target_text}' word")
+        
+        # Find closest target word to the selected number among all available matches
+        closest_word = None
+        min_distance = float('inf')
+        
+        for match_option in ambiguous_matches:
+            # Calculate distance from number position to this word instance
+            word_coords = match_option.get('coords')
+            distance = actions.user.calculate_distance(selected_number_coords, word_coords)
+            print(f"  Distance from selected number {selected_number_coords} to '{match_option.get('text')}' at {word_coords}: {distance:.1f}px")
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest_word = match_option
+        
+        # Use the closest word's coordinates instead of the number's coordinates
+        if closest_word and min_distance > 10:  # Only fix if there's a meaningful difference
+            print(f"COORDINATE_FIX: Using closest word at {closest_word.get('coords')} instead of number at {selected_number_coords} (distance: {min_distance:.1f}px)")
+            match = closest_word.copy()  # Use closest word data
+        else:
+            print(f"COORDINATE_FIX: Number and word positions are close enough, using selected match")
+            match = selected_match
+        
         try:
             ambiguous_matches = disambiguation_generator.send(match)
             if ambiguous_matches:
