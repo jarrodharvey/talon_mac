@@ -54,6 +54,7 @@ mod.setting(
     desc="Controls the speed at which a character moves in a game"
 )
 
+
 mod.setting(
     "forward_button",
     type=str,
@@ -394,16 +395,30 @@ class Actions:
         
         # Check if current game uses pathfinding instead of mouse clicking
         if settings.get("user.uses_pathfinding"):
-            ctx.tags = ["user.ocr_pathfinding_button"]
+            # Add pathfinding tag to existing context instead of replacing
+            current_tags = list(ctx.tags) if ctx.tags else []
+            print(f"DEBUG: Before adding pathfinding tag - current tags: {current_tags}")
+            print(f"DEBUG: Current disambiguation color setting: {settings.get('user.disambiguation_number_color', 'NOT_SET')}")
+            if "user.ocr_pathfinding_button" not in current_tags:
+                current_tags.append("user.ocr_pathfinding_button")
+            ctx.tags = current_tags
+            print(f"DEBUG: After adding pathfinding tag - new tags: {current_tags}")
             print("Enabled pathfinding mode for OCR navigation")
         else:
-            ctx.tags = ["user.ocr_click_button"]
+            # Add click tag to existing context instead of replacing  
+            current_tags = list(ctx.tags) if ctx.tags else []
+            if "user.ocr_click_button" not in current_tags:
+                current_tags.append("user.ocr_click_button")
+            ctx.tags = current_tags
             print("Enabled mouse click mode for OCR navigation")
     
     def disable_ocr_click_button():
         """Disables both OCR click and pathfinding modes"""
         actions.user.connect_ocr_eye_tracker()
-        ctx.tags = []
+        # Remove only the OCR tags, keep other existing tags
+        current_tags = list(ctx.tags) if ctx.tags else []
+        current_tags = [tag for tag in current_tags if tag not in ["user.ocr_pathfinding_button", "user.ocr_click_button"]]
+        ctx.tags = current_tags
         print("Disabled OCR navigation mode")
     def game_click_spot(phrase: str):
         """Clicks a spot on the screen"""

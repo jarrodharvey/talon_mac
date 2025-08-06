@@ -28,15 +28,6 @@ disambiguation_generator = None
 # Add disambiguation mode
 mod.mode("gaming_pathfinding_disambiguation")
 
-def has_light_background(screenshot):
-    """Determine if screenshot has light background for color selection"""
-    array = np.array(screenshot)
-    grayscale = 0.299 * array[:, :, 0] + 0.587 * array[:, :, 1] + 0.114 * array[:, :, 2]
-    return np.mean(grayscale) > 128
-
-def get_debug_color(has_light_bg: bool):
-    """Get appropriate color for debug display based on background"""
-    return "000000" if has_light_bg else "FFFFFF"
 
 def reset_disambiguation():
     """Reset disambiguation state and hide any active UI"""
@@ -71,15 +62,12 @@ def show_disambiguation():
             return
             
         contents = gaze_ocr_controller.latest_screen_contents()
-        debug_color = get_debug_color(has_light_background(contents.screenshot))
         
         used_locations = set()
         for i, match in enumerate(ambiguous_matches):
             # Make nearest match bold (though we don't have cursor selection like gaze-ocr)
             c.paint.typeface = Typeface.from_name("", Fontstyle.new(weight=700, width=5))
             c.paint.textsize = max(20, 15)  # Larger than gaze-ocr for gaming
-            c.paint.style = c.paint.Style.FILL
-            c.paint.color = debug_color
             
             # Get coordinates from match
             coords = match.get('coords', (0, 0))
@@ -90,7 +78,18 @@ def show_disambiguation():
                 location = (location[0] + 20, location[1])
             used_locations.add(location)
             
-            c.draw_text(str(i + 1), *location)
+            number_text = str(i + 1)
+            
+            # Draw black outline first (stroke)
+            c.paint.style = c.paint.Style.STROKE
+            c.paint.stroke_width = 3  # Outline thickness
+            c.paint.color = "000000"  # Black outline
+            c.draw_text(number_text, *location)
+            
+            # Draw white fill on top
+            c.paint.style = c.paint.Style.FILL
+            c.paint.color = "FFFFFF"  # White fill
+            c.draw_text(number_text, *location)
     
     actions.mode.enable("user.gaming_pathfinding_disambiguation")
     if disambiguation_canvas:
@@ -365,9 +364,9 @@ class CoreNavigationActions:
             
             # Use more lenient proximity thresholds when using pre-resolved coordinates (disambiguation)
             if target_coords:
-                # Increase proximity thresholds by 50% for disambiguation targets
-                proximity_x = int(proximity_x * 1.5)
-                proximity_y = int(proximity_y * 1.5)
+                # Increase proximity thresholds by 25% for disambiguation targets
+                proximity_x = int(proximity_x * 1.25)
+                proximity_y = int(proximity_y * 1.25)
                 print(f"Using relaxed proximity for disambiguation: {proximity_x}x{proximity_y}px")
             
             print(f"Direction calculation - X diff: {x_diff:.1f}, Y diff: {y_diff:.1f}")
