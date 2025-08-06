@@ -22,7 +22,7 @@ class TemplateMatchingActions:
         global last_successful_cursor_file
         
         if thresholds is None:
-            thresholds = [0.9, 0.85]
+            thresholds = [0.95, 0.9]
             
         # Determine cursor directory and path
         if not cursor_directory:
