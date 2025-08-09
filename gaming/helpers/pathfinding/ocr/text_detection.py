@@ -41,6 +41,67 @@ BASIC_HOMOPHONES = {
 # Global variable for text width tracking
 current_target_width = 0
 
+def find_phrase_sequences(target_text: str, ocr_lines, fuzzy_threshold: float = 0.8):
+    """Find multi-word phrase sequences in OCR lines using sliding window approach (talon-gaze-ocr method)"""
+    target_words = target_text.lower().split()
+    if len(target_words) <= 1:
+        return []  # Single words should use existing word-based matching
+    
+    phrase_matches = []
+    
+    for line_idx, line in enumerate(ocr_lines):
+        if len(line.words) < len(target_words):
+            continue  # Line too short to contain the phrase
+        
+        # Sliding window approach: try all possible positions
+        for start_idx in range(len(line.words) - len(target_words) + 1):
+            candidate_words = line.words[start_idx:start_idx + len(target_words)]
+            
+            # Check if words are adjacent (only whitespace between them)
+            adjacent = True
+            for i in range(len(candidate_words) - 1):
+                current_word = candidate_words[i]
+                next_word = candidate_words[i + 1]
+                
+                # Words are adjacent if next word starts close to where current word ends
+                gap = next_word.left - (current_word.left + current_word.width)
+                if gap > 30:  # Allow reasonable whitespace gap (30px)
+                    adjacent = False
+                    break
+            
+            if not adjacent:
+                continue
+            
+            # Create candidate phrase text
+            candidate_phrase = ' '.join([w.text for w in candidate_words])
+            
+            # Score the complete phrase using fuzzy matching
+            if RAPIDFUZZ_AVAILABLE:
+                score = fuzz.ratio(target_text.lower(), candidate_phrase.lower()) / 100.0
+                if score >= fuzzy_threshold:
+                    # Calculate phrase bounding box (first word top-left to last word bottom-right)
+                    first_word = candidate_words[0]
+                    last_word = candidate_words[-1]
+                    
+                    phrase_info = {
+                        'coords': (
+                            first_word.left,  # Left edge of first word (matches single word behavior)
+                            first_word.top + first_word.height // 2  # Vertical center of first word
+                        ),
+                        'text': candidate_phrase,
+                        'width': (last_word.left + last_word.width) - first_word.left,
+                        'height': max(first_word.height, last_word.height),
+                        'line': line_idx,
+                        'word_start': start_idx,
+                        'word_count': len(candidate_words),
+                        'fuzzy_score': score,
+                        'is_phrase': True
+                    }
+                    phrase_matches.append(phrase_info)
+                    print(f"  ✓ Phrase match: '{candidate_phrase}' (score: {score:.2f}) at {phrase_info['coords']}")
+    
+    return phrase_matches
+
 def get_homophones_for_word(word: str) -> list:
     """Get homophones using community system with fallback to basic set"""
     try:
@@ -180,52 +241,68 @@ class OCRTextDetectionActions:
                 print(f"Got OCR contents with {len(contents.result.lines)} lines")
                 
                 # Search for the target text
-                # Find ALL matching text instances, then pick the best one
+                # PHASE 1: Try phrase sequence matching first (multi-word phrases)
                 text_matches = []
                 all_words = []  # Store all words for potential fuzzy matching
                 
-                for line_idx, line in enumerate(contents.result.lines):
-                    for word_idx, word in enumerate(line.words):
-                        print(f"Line {line_idx}, Word {word_idx}: '{word.text}' at ({word.left}, {word.top})")
-                        
-                        # Store word for potential fuzzy matching
-                        word_info = {
-                            'coords': (word.left, word.top + word.height//2),
-                            'text': word.text,
-                            'width': word.width,
-                            'line': line_idx,
-                            'word': word_idx
-                        }
-                        all_words.append(word_info)
-                        
-                        # Try exact matching first (current behavior)
-                        if target_text.lower() in word.text.lower():
-                            text_matches.append(word_info)
+                # Check if this is a multi-word phrase
+                target_words = target_text.split()
+                if len(target_words) > 1:
+                    print(f"Multi-word target detected: '{target_text}' -> {target_words}")
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold", 0.8)
+                    phrase_matches = find_phrase_sequences(target_text, contents.result.lines, fuzzy_threshold)
+                    if phrase_matches:
+                        # Sort phrase matches by score (best first)
+                        phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                        text_matches = phrase_matches
+                        print(f"Found {len(text_matches)} phrase sequence matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
                 
-                # If exact matches found, use them
-                if text_matches:
-                    print(f"Found {len(text_matches)} exact matches for '{target_text}'")
-                elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
-                    # Try fuzzy matching as fallback
-                    print(f"No exact matches for '{target_text}', trying fuzzy matching...")
-                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                    fuzzy_matches = []
+                # PHASE 2: If no phrase matches, try individual word matching (original behavior)
+                if not text_matches:
+                    print(f"No phrase matches found, trying individual word matching for '{target_text}'")
                     
-                    for word_info in all_words:
-                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
-                        print(f"  Testing '{word_info['text']}' vs '{target_text}': score {score:.2f} (threshold: {fuzzy_threshold:.2f})")
-                        if score >= fuzzy_threshold:
-                            word_info['fuzzy_score'] = score
-                            fuzzy_matches.append(word_info)
-                            print(f"  ✓ Fuzzy match: '{word_info['text']}' (score: {score:.2f})")
+                    for line_idx, line in enumerate(contents.result.lines):
+                        for word_idx, word in enumerate(line.words):
+                            print(f"Line {line_idx}, Word {word_idx}: '{word.text}' at ({word.left}, {word.top})")
+                            
+                            # Store word for potential fuzzy matching
+                            word_info = {
+                                'coords': (word.left, word.top + word.height//2),
+                                'text': word.text,
+                                'width': word.width,
+                                'line': line_idx,
+                                'word': word_idx
+                            }
+                            all_words.append(word_info)
+                            
+                            # Try exact matching first (current behavior)
+                            if target_text.lower() in word.text.lower():
+                                text_matches.append(word_info)
                     
-                    if fuzzy_matches:
-                        # Sort by score (best first) and use fuzzy matches
-                        fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
-                        text_matches = fuzzy_matches
-                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
-                    else:
-                        print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
+                    # If exact matches found, use them
+                    if text_matches:
+                        print(f"Found {len(text_matches)} exact word matches for '{target_text}'")
+                    elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                        # Try fuzzy matching as fallback
+                        print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                        fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                        fuzzy_matches = []
+                        
+                        for word_info in all_words:
+                            score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                            print(f"  Testing '{word_info['text']}' vs '{target_text}': score {score:.2f} (threshold: {fuzzy_threshold:.2f})")
+                            if score >= fuzzy_threshold:
+                                word_info['fuzzy_score'] = score
+                                fuzzy_matches.append(word_info)
+                                print(f"  ✓ Fuzzy match: '{word_info['text']}' (score: {score:.2f})")
+                        
+                        if fuzzy_matches:
+                            # Sort by score (best first) and use fuzzy matches
+                            fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                            text_matches = fuzzy_matches
+                            print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                        else:
+                            print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
                 
                 if text_matches:
                     global current_target_width
@@ -381,48 +458,65 @@ class OCRTextDetectionActions:
                 contents = gaze_ocr_controller.latest_screen_contents()
                 
                 # Search for the target text
+                # PHASE 1: Try phrase sequence matching first (multi-word phrases)
                 text_matches = []
                 all_words = []
                 
-                for line_idx, line in enumerate(contents.result.lines):
-                    for word_idx, word in enumerate(line.words):
-                        # Store word for potential fuzzy matching
-                        word_info = {
-                            'coords': (word.left, word.top + word.height // 2),
-                            'text': word.text,
-                            'width': word.width,
-                            'height': word.height,
-                            'line': line_idx,
-                            'word': word_idx
-                        }
-                        all_words.append(word_info)
-                        
-                        # Try exact matching first
-                        if target_text.lower() in word.text.lower():
-                            text_matches.append(word_info)
+                # Check if this is a multi-word phrase
+                target_words = target_text.split()
+                if len(target_words) > 1:
+                    print(f"Multi-word target detected: '{target_text}' -> {target_words}")
+                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold", 0.8)
+                    phrase_matches = find_phrase_sequences(target_text, contents.result.lines, fuzzy_threshold)
+                    if phrase_matches:
+                        # Sort phrase matches by score (best first)
+                        phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                        text_matches = phrase_matches
+                        print(f"Found {len(text_matches)} phrase sequence matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
                 
-                # If exact matches found, use them
-                if text_matches:
-                    print(f"Found {len(text_matches)} exact matches for '{target_text}'")
-                elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
-                    # Try fuzzy matching as fallback
-                    print(f"No exact matches for '{target_text}', trying fuzzy matching...")
-                    fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                    fuzzy_matches = []
+                # PHASE 2: If no phrase matches, try individual word matching (original behavior)
+                if not text_matches:
+                    print(f"No phrase matches found, trying individual word matching for '{target_text}'")
                     
-                    for word_info in all_words:
-                        score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
-                        if score >= fuzzy_threshold:
-                            word_info['fuzzy_score'] = score
-                            fuzzy_matches.append(word_info)
+                    for line_idx, line in enumerate(contents.result.lines):
+                        for word_idx, word in enumerate(line.words):
+                            # Store word for potential fuzzy matching
+                            word_info = {
+                                'coords': (word.left, word.top + word.height // 2),
+                                'text': word.text,
+                                'width': word.width,
+                                'height': word.height,
+                                'line': line_idx,
+                                'word': word_idx
+                            }
+                            all_words.append(word_info)
+                            
+                            # Try exact matching first
+                            if target_text.lower() in word.text.lower():
+                                text_matches.append(word_info)
                     
-                    if fuzzy_matches:
-                        # Sort by score (best first) and use fuzzy matches
-                        fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
-                        text_matches = fuzzy_matches
-                        # Log the best score before any re-sorting
-                        best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
-                        print(f"Found {len(text_matches)} fuzzy matches for '{target_text}' (best score: {best_score:.2f})")
+                    # If exact matches found, use them
+                    if text_matches:
+                        print(f"Found {len(text_matches)} exact word matches for '{target_text}'")
+                    elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
+                        # Try fuzzy matching as fallback
+                        print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                        fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                        fuzzy_matches = []
+                        
+                        for word_info in all_words:
+                            score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                            if score >= fuzzy_threshold:
+                                word_info['fuzzy_score'] = score
+                                fuzzy_matches.append(word_info)
+                        
+                        if fuzzy_matches:
+                            # Sort by score (best first) and use fuzzy matches
+                            fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                            text_matches = fuzzy_matches
+                            # Log the best score before any re-sorting
+                            best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
+                            print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {best_score:.2f})")
                 
                 if text_matches:
                     if len(text_matches) == 1:

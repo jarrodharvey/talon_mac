@@ -8,7 +8,7 @@ settings():
     user.travel_distance = 1
     user.navigation_mode = "unified"
     user.game_action_button = "space" 
-    user.highlight_proximity_x = 60 
+    user.highlight_proximity_x = 60
     user.highlight_proximity_y = 20
     user.cursor_directory = "chained_echoes"
     user.grid_column_threshold = 500
@@ -39,27 +39,27 @@ parrot(tch):
 
 ^menu$: 
     user.game_stop()
+    user.set_pathfinding_global_variable("default_action_button_count", 1)
     key("i")
 
 # Automated dialogue advancement with different speeds
-^tutorial$: user.set_repeat_button("space", 5)
-^dialogue$: user.set_repeat_button("space", 4)
+^dialogue$: user.set_repeat_button("space", 5)
 
 ^stop$: user.game_stop()
 
 # Rapid button mashing for dialogue skip
 ^mash$: user.set_repeat_button("space", 0.5)
-^careful$: user.set_repeat_button("space", 2)
+^battle$: user.set_repeat_button("space", 2)
 
 ^map$: 
     user.game_stop()
     key("m")
 
-double: user.press_key_x_times("space", 2, 1)
+(double | dub): user.press_key_x_times("space", 2, 1)
 ^triple$: user.press_key_x_times("space", 3, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
-^go <user.word>$: user.navigate_to_word(word)
+^go <user.prose>$: user.navigate_to_word(prose)
 ^save game$: 
     user.game_stop()
     key("i")
@@ -104,6 +104,10 @@ double: user.press_key_x_times("space", 2, 1)
     key("space")
 
 ^ultra$: key("r")
+^run away$: 
+    key("q")
+    sleep(1s)
+    key("q")
 claim: key("m")
 ^optimize$: key("i")
 ^knock [<number>]$: 
@@ -135,6 +139,9 @@ key(=):
 {user.wasd_arrows} [<number>]: 
     user.press_key_x_times(user.wasd_arrows, number or 1, 0.5)
 
+{user.wasd_arrows} twice: 
+    user.press_key_x_times(user.wasd_arrows, 2, 0.5)
+
 bang: key("space")
 
 ^restart game$: 
@@ -154,8 +161,8 @@ bang: key("space")
 ^debug path$: user.debug_pathfinding_state()
 
 # Visual debug markers for pathfinding
-^path debug [<user.word>]$:
-    target = word or "Attack"
+^path debug [<user.prose>]$:
+    target = prose or "Attack"
     user.show_pathfinding_debug_markers(target)
 
 ^path dismiss$:

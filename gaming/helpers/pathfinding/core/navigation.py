@@ -570,11 +570,13 @@ class CoreNavigationActions:
         if use_wasd is None:
             use_wasd = settings.get("user.uses_wasd")
         
-        # Convert word to proper case for search - handle TimestampedText objects
+        # Convert word/phrase to proper case for search - handle TimestampedText objects
         if hasattr(word, 'text'):
-            target_text = word.text.capitalize()
+            # For multi-word phrases, capitalize each word
+            target_text = ' '.join(w.capitalize() for w in word.text.split())
         else:
-            target_text = str(word).capitalize()
+            # For multi-word phrases, capitalize each word
+            target_text = ' '.join(w.capitalize() for w in str(word).split())
         
         # Use configured action button if requested
         if use_configured_action:
@@ -594,6 +596,10 @@ class CoreNavigationActions:
     def navigate_to_word_with_action(word: object):
         """Navigate to word using configured input method and press configured action button"""
         actions.user.navigate_to_word(word, None, None, None, True)
+
+    def navigate_to_phrase_with_action(phrase: object):
+        """Navigate to phrase using configured input method and press configured action button"""
+        actions.user.navigate_to_word(phrase, None, None, None, True)
 
     # Backwards compatibility wrappers
     def navigate_to_word_wasd(word: str, max_steps: int = None, action_button: str = None, action_count: int = 1, action_interval: float = 0.1) -> None:
@@ -622,11 +628,13 @@ class CoreNavigationActions:
         if use_wasd is None:
             use_wasd = settings.get("user.uses_wasd")
         
-        # Convert word to proper case for search
+        # Convert word/phrase to proper case for search
         if hasattr(word, 'text'):
-            target_text = word.text.capitalize()
+            # For multi-word phrases, capitalize each word
+            target_text = ' '.join(w.capitalize() for w in word.text.split())
         else:
-            target_text = str(word).capitalize()
+            # For multi-word phrases, capitalize each word
+            target_text = ' '.join(w.capitalize() for w in str(word).split())
         
         # Use configured action button if requested
         if use_configured_action:
