@@ -73,19 +73,11 @@ parrot(kiss):
     user.click_then_wait(1)
     repeat(2)
 
-^inventory$: 
+^inventory$:
     user.game_stop()
     key("s")
     sleep(1s)
-    user.click_image("bw2_bag.png") 
-    sleep(1s)
-    key("x")
-
-^inventory$: 
-    user.game_stop()
-    key("s")
-    sleep(1s)
-    user.click_image("bw2_bag.png") 
+    user.click_image("bw2_bag.png")
     sleep(1s)
     key("x")
 
@@ -96,7 +88,7 @@ parrot(kiss):
     user.click_image("bw_pokemon.png") 
     sleep(1s)
 
-^shift${"type":"response","action":{"type":"noAction"},"actions":[]}: user.click_image("pokemon_white_shift.png") 
+^shift$: user.click_image("pokemon_white_shift.png") 
 
 ^poke one$: user.click_spot("poke one")
 ^poke two$: user.click_spot("poke two")
@@ -110,4 +102,5 @@ parrot(kiss):
 ^box left$: user.click_image("pk_box_left.png")
 ^box right$: user.click_image("pk_box_right.png")
 
-^detail$: key("q")
+key(`):
+    user.conditional_image_button_press("z", "white_chat.png", 2000, true, 2000, true, "x", "x")

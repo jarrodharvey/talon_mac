@@ -16,6 +16,7 @@ brow_direction = None
 button_presser_job = None
 grinding_job = None
 conditional_image_job = None
+conditional_image_delay_job = None
 repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
@@ -139,6 +140,7 @@ class Actions:
         global grinding_job
         global mouse_mover_job
         global conditional_image_job
+        global conditional_image_delay_job
 
         actions.key("left:up")
         actions.key("right:up")
@@ -177,6 +179,8 @@ class Actions:
         grinding_job = None
         cron.cancel(conditional_image_job)
         conditional_image_job = None
+        cron.cancel(conditional_image_delay_job)
+        conditional_image_delay_job = None
         actions.user.stop_continuous_navigation()
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
@@ -462,25 +466,46 @@ class Actions:
             actions.key(action_button)
         else:
             actions.key(directions[random.randint(0,3)])
-    def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True):
+    def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True, wait_before: int = 0, stop_first: bool = True, initial_button: str = "", press_final_button: str = ""):
         """Presses a button if an image is present or not present on the screen"""
         global conditional_image_job
-        actions.user.game_stop()
-        if image_present:
-            conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, True))
+        global conditional_image_delay_job
+        if stop_first:
+            actions.user.game_stop()
+
+        def start_conditional_check():
+            global conditional_image_job
+            if image_present:
+                conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, True, press_final_button))
+            else:
+                conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, False, press_final_button))
+
+        if initial_button:
+            # Press initial button asynchronously after game_stop settles
+            cron.after("50ms", lambda: actions.key(initial_button))
+
+        if wait_before > 0:
+            conditional_image_delay_job = cron.after(f"{wait_before}ms", start_conditional_check)
         else:
-            conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, False))
-    def conditional_image_button_press_helper(action_button: str, image_name: str, image_present: bool):
+            start_conditional_check()
+    def conditional_image_button_press_helper(action_button: str, image_name: str, image_present: bool, press_final_button: str = ""):
         """Helper function for conditional image button press"""
         global conditional_image_job
         # Check if the image is present on the screen
         # If it is, press the action button, otherwise cancel the cron job
-        print(f"Checking if image {image_name} is present: {image_present}")
-        if actions.user.image_appeared_on_screen(image_name) == image_present:
+        image_found = actions.user.image_appeared_on_screen(image_name)
+        if image_found == image_present:
             actions.key(action_button)
         else:
-            print(f"Image {image_name} presence is not {image_present}, cancelling {action_button}")
-            cron.cancel(conditional_image_job)
+            # Schedule both cancel and final press outside this callback context
+            def cleanup_and_final():
+                global conditional_image_job
+                cron.cancel(conditional_image_job)
+                conditional_image_job = None
+                if press_final_button:
+                    time.sleep(0.5)  # Wait for game to be ready
+                    actions.key(press_final_button)
+            cron.after("10ms", cleanup_and_final)
     def click_then_wait(wait_time: int):
         """Clicks the mouse then waits for a specified time"""
         actions.user.super_click()
@@ -545,4 +570,4 @@ class Actions:
         actions.key("c")
         time.sleep(0.2)
         if looking_around == "no":
-            actions.key(f"{forward_button}:down")
+            actions.key(f"{forward_button}:down")   
