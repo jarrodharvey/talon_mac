@@ -57,7 +57,7 @@ parrot(kiss):
 ^continue$: 
     user.press_key_x_times("z", 2, 1)
 
-^double$: user.press_key_x_times("x", 2, 1)
+^(double | dub)$: user.press_key_x_times("x", 2, 1)
 ^triple$: user.press_key_x_times("x", 3, 1)
 
 ^track$: user.press_key_x_times("z", 3, 2)
@@ -93,7 +93,7 @@ parrot(kiss):
 ^poke one$: user.click_spot("poke one")
 ^poke two$: user.click_spot("poke two")
 ^poke three$: user.click_spot("poke three")
-^(poke for | perk full)$: user.click_spot("poke for")
+^poke for$: user.click_spot("poke for")
 ^poke five$: user.click_spot("poke five")
 ^poke six$: user.click_spot("poke six")
 
@@ -102,5 +102,8 @@ parrot(kiss):
 ^box left$: user.click_image("pk_box_left.png")
 ^box right$: user.click_image("pk_box_right.png")
 
+^tricky$: user.set_repeat_button("click", 1)
+
 key(`):
-    user.conditional_image_button_press("z", "white_chat.png", 2000, true, 2000, true, "x", "x")
+    user.set_repeat_button("z", 2)
+    user.conditional_image_button_press("z", "white_chat.png", 2500, true, 1500, true, "x", "x")

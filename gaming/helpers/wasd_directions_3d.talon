@@ -3,12 +3,12 @@ mode: user.game
 -
 
 ^north$: user.diagonal_3d("w", "w")
-^south$: user.diagonal_3d("s", "s")
+^(south | self)$: user.diagonal_3d("s", "s")
 ^taste$: user.diagonal_3d("d", "d")
 ^west$: user.diagonal_3d("a", "a")
 
 ^(northeast | next)$: user.diagonal_3d("w", "d")
-^(southeast | sex)$: user.diagonal_3d("s", "d")
+^(southeast | socks)$: user.diagonal_3d("s", "d")
 ^(northwest | now)$: user.diagonal_3d("w", "a")
 ^(southwest | swish)$: user.diagonal_3d("s", "a")
 

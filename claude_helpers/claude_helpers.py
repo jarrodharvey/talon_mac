@@ -33,12 +33,9 @@ class Actions:
         """Access the global troubleshooter instance"""
         return troubleshooter
     
-    def capture_claude_screenshot():
+    def capture_claude_screenshot(screenshots_dir: str = "/Users/jarrod/.talon/user/jarrod/claude_helpers/screenshots"):
         """Capture a screenshot and save it to the claude_helpers screenshots directory"""
         try:
-            # Define the screenshots directory
-            screenshots_dir = "/Users/jarrod/.talon/user/jarrod/claude_helpers/screenshots"
-            
             # Create directory if it doesn't exist
             os.makedirs(screenshots_dir, exist_ok=True)
             

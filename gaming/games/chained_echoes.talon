@@ -20,7 +20,7 @@ settings():
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
-tag(): user.pathfinding_cubes
+#tag(): user.pathfinding_cubes
 
 # Parrot sounds for common actions - click sound triggers main action button
 parrot(click): 
@@ -44,6 +44,7 @@ parrot(tch):
 
 # Automated dialogue advancement with different speeds
 ^dialogue$: user.set_repeat_button("space", 5)
+^exposition$: user.set_repeat_button("space", 7)
 
 ^stop$: user.game_stop()
 
@@ -56,7 +57,7 @@ parrot(tch):
     key("m")
 
 (double | dub): user.press_key_x_times("space", 2, 1)
-^triple$: user.press_key_x_times("space", 3, 1)
+triple: user.press_key_x_times("space", 3, 1)
 
 # Dynamic menu navigation - navigate to any word using OCR
 ^go <user.prose>$: user.navigate_to_word(prose)
@@ -119,7 +120,7 @@ claim: key("m")
     sleep(0.5)
     key("space")
 ^teleport$: key("i")
-^(location | quest) info$: key("e")
+^(location | quest | hide) info$: key("e")
 ^select all$: key("m") 
 ^switch$: 
     key("e")
@@ -153,6 +154,20 @@ bang: key("space")
     user.click_image("steam_confirm.png")
     sleep(6)
     user.click_image("steam_play.png")
+
+^airship$: key("k")
+
+# Sky Armor
+^board$: key("e")
+^fly$: key("e")
+^gear$: 
+    key("e")
+^exit$: key("q")
+^drop$: 
+    user.game_stop()
+    key("q")
+    sleep(5)
+    key("a")
 
 ### Debugging
 # Debug functions
