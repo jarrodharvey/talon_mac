@@ -1,8 +1,0 @@
-flowchart: flowchart TD
-sequence: sequenceDiagram
-class: classDiagram
-state: stateDiagram-v2
-gantt: gantt
-pie: pie
-journey: journey
-git graph: gitGraph
