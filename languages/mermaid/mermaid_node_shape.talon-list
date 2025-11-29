@@ -1,0 +1,7 @@
+rectangle: []
+rounded: ()
+stadium: ([])
+circle: (())
+diamond: {}
+hexagon: {{}}
+parallelogram: [//]
