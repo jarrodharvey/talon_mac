@@ -8,3 +8,6 @@ mode: user.game
 
 ^quit moonlight$: 
     key("ctrl-alt-shift-q")
+
+^better test$: 
+    user.betterinput_simple("return |500ms space |500ms space |500ms space")

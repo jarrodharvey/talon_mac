@@ -570,4 +570,7 @@ class Actions:
         actions.key("c")
         time.sleep(0.2)
         if looking_around == "no":
-            actions.key(f"{forward_button}:down")   
+            actions.key(f"{forward_button}:down")
+    def betterinput_simple(action_str: str):
+        """Simple wrapper for betterinput with no bindings or options"""
+        actions.user.betterinput(action_str, "", {})   
