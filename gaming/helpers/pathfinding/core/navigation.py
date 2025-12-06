@@ -581,9 +581,12 @@ class CoreNavigationActions:
         # Use configured action button if requested
         if use_configured_action:
             action_button = settings.get("user.game_action_button")
-        
+
+        # Get original command text for HUD restoration
+        original_command = word.text if hasattr(word, 'text') else str(word)
+
         # Check if disambiguation is needed by checking if multiple matches exist
-        needs_disambiguation = actions.user.check_if_disambiguation_needed(target_text)
+        needs_disambiguation = actions.user.check_if_disambiguation_needed(target_text, source_command=original_command)
         
         if needs_disambiguation:
             print(f"Multiple matches detected for '{target_text}', using disambiguation")
@@ -639,12 +642,15 @@ class CoreNavigationActions:
         # Use configured action button if requested
         if use_configured_action:
             action_button = settings.get("user.game_action_button")
-        
-        # Get text coordinates using generator (supports disambiguation)  
+
+        # Get original command text for HUD restoration
+        original_command = word.text if hasattr(word, 'text') else str(word)
+
+        # Get text coordinates using generator (supports disambiguation)
         from ..debug.coordinate_tracer import coord_tracer
         coord_tracer.log_event('request', None, 'navigate_to_word_generator', {'target_text': target_text})
-        
-        target_coords = yield from actions.user.get_text_coordinates_generator(target_text, disambiguate=True)
+
+        target_coords = yield from actions.user.get_text_coordinates_generator(target_text, disambiguate=True, source_command=original_command)
         
         if target_coords:
             coord_tracer.log_event('received', target_coords, 'get_text_coordinates_generator', {'target_text': target_text})

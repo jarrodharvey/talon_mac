@@ -4,10 +4,10 @@ app: moonlight
 -
 
 settings():
-    key_wait = 15
+    key_wait = 17
     user.super_click_duration = 0.8
     user.travel_distance = 1
-    user.navigation_mode = "unified"
+    user.navigation_mode = "vertical"
     user.game_action_button = "return" 
     user.highlight_proximity_x = 80
     user.highlight_proximity_y = 20
@@ -32,13 +32,9 @@ parrot(tch):
 
 # Automated dialogue advancement with different speeds
 ^dialogue$: user.set_repeat_button("return", 6)
-^battle$: user.set_repeat_button("return", 1)
+^battle$: user.set_repeat_button("return", 0.5)
 
 ^stop$: user.game_stop()
-
-# Rapid button mashing for dialogue skip
-^mash$: user.set_repeat_button("return", 0.5)
-^battle$: user.set_repeat_button("return", 2)
 
 ^close$: key("c")
 ^map$: key("t")
@@ -46,7 +42,9 @@ parrot(tch):
     user.game_stop()
     key("i")
 ^confirm$: key("f")
-^open$: key("f")
+^open$: 
+    user.game_stop()
+    user.betterinput_with_sleep("f | return", "2000ms")
 ^examine$: key("f")
 ^toggle pages$: key("f")
 ^(counsel | cancel)$: key("c")
@@ -55,6 +53,7 @@ parrot(tch):
 ^tooltips$: key("space")
 
 ^save game$:
+    user.game_stop()
     user.betterinput_with_sleep("return:3 | c:2", "1000ms")
 
 ^dub$: user.betterinput_with_sleep("return:2", "2000ms")
@@ -86,3 +85,10 @@ bang: key("return")
 
 {user.wasd_arrows} twice: 
     user.press_key_x_times(user.wasd_arrows, 2, 0.5)
+
+^unboost$: key("q")
+
+^dang$: user.betterinput_simple("s |1000ms return")
+
+^boost [<number>]$: 
+    user.press_key_x_times("e", number or 1, 0.5)

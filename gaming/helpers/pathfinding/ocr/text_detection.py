@@ -41,6 +41,43 @@ BASIC_HOMOPHONES = {
 # Global variable for text width tracking
 current_target_width = 0
 
+def clear_hud_event_log():
+    """Clear talon-hud event log to prevent OCR false matches"""
+    try:
+        import sys
+        hud_instance = None
+
+        # Find talon-hud display module
+        for module_name, module in sys.modules.items():
+            if 'talon_hud' in module_name and 'display' in module_name:
+                if hasattr(module, 'hud'):
+                    hud_instance = module.hud
+                    break
+
+        # Clear event log widget
+        if hud_instance and hasattr(hud_instance, 'widget_manager'):
+            for widget in hud_instance.widget_manager.widgets:
+                if hasattr(widget, 'id') and widget.id == "event_log":
+                    if hasattr(widget, 'clear_logs'):
+                        widget.clear_logs()
+                        print("DEBUG: Cleared HUD event log before OCR scan")
+                        return True
+                    break
+        else:
+            print("DEBUG: talon-hud instance not found, skipping log clear")
+    except Exception as e:
+        print(f"DEBUG: Could not clear HUD logs: {e}")
+    return False
+
+def restore_hud_command_echo(command_text: str):
+    """Restore command echo to HUD event log after OCR scan"""
+    try:
+        # Use the hud_add_log action to restore the command echo
+        actions.user.hud_add_log("command", command_text)
+        print(f"DEBUG: Restored command echo to HUD: '{command_text}'")
+    except Exception as e:
+        print(f"DEBUG: Could not restore HUD command echo: {e}")
+
 def find_phrase_sequences(target_text: str, ocr_lines, fuzzy_threshold: float = 0.8):
     """Find multi-word phrase sequences in OCR lines using sliding window approach (talon-gaze-ocr method)"""
     target_words = target_text.lower().split()
@@ -191,12 +228,16 @@ def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) ->
 
 @mod.action_class
 class OCRTextDetectionActions:
-    def get_text_coordinates(target_text: str):
+    def get_text_coordinates(target_text: str, source_command: str = None):
         """Find coordinates of text using OCR with fuzzy matching support"""
         try:
             # Disconnect eye tracker to scan full screen
             actions.user.disconnect_ocr_eye_tracker()
-            
+
+            # Clear HUD logs before OCR scan
+            if source_command:
+                clear_hud_event_log()
+
             # Trigger OCR scan without visual overlay
             
             # Try different approaches to access the OCR controller
@@ -312,6 +353,9 @@ class OCRTextDetectionActions:
                         match = text_matches[0]
                         print(f"Found single '{target_text}' at center coordinates: {match['coords']}")
                         current_target_width = match['width']
+                        # Restore HUD command echo after OCR
+                        if source_command:
+                            restore_hud_command_echo(source_command)
                         actions.user.connect_ocr_eye_tracker()
                         return match['coords']
                     else:
@@ -339,6 +383,9 @@ class OCRTextDetectionActions:
                             if best_match:
                                 print(f"Selected closest '{target_text}' at {best_match['coords']} (distance: {min_distance:.1f}px)")
                                 current_target_width = best_match['width']
+                                # Restore HUD command echo after OCR
+                                if source_command:
+                                    restore_hud_command_echo(source_command)
                                 actions.user.connect_ocr_eye_tracker()
                                 return best_match['coords']
                         else:
@@ -346,28 +393,42 @@ class OCRTextDetectionActions:
                             match = text_matches[0]
                             print(f"No cursor found, using first '{target_text}' at {match['coords']}")
                             current_target_width = match['width']
+                            # Restore HUD command echo after OCR
+                            if source_command:
+                                restore_hud_command_echo(source_command)
                             actions.user.connect_ocr_eye_tracker()
                             return match['coords']
                 
                 print(f"Text '{target_text}' not found in OCR results")
             else:
                 print("Could not find gaze_ocr_controller via any method")
-            
+
+            # Restore HUD command echo after OCR
+            if source_command:
+                restore_hud_command_echo(source_command)
+
             # Reconnect eye tracker
             actions.user.connect_ocr_eye_tracker()
             return None
-            
+
         except Exception as e:
             print(f"Error getting text coordinates: {str(e)}")
+            # Restore HUD command echo even on error
+            if source_command:
+                restore_hud_command_echo(source_command)
             actions.user.connect_ocr_eye_tracker()
             return None
 
-    def check_if_disambiguation_needed(target_text: str) -> bool:
+    def check_if_disambiguation_needed(target_text: str, source_command: str = None) -> bool:
         """Check if multiple matches exist for the target text without doing full disambiguation"""
         try:
             # Disconnect eye tracker to scan full screen
             actions.user.disconnect_ocr_eye_tracker()
-            
+
+            # Clear HUD logs before OCR check
+            if source_command:
+                clear_hud_event_log()
+
             # Try different approaches to access the OCR controller
             import sys
             gaze_ocr_controller = None
@@ -414,32 +475,46 @@ class OCRTextDetectionActions:
                         score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
                         if score >= fuzzy_threshold:
                             text_matches.append(word_info)
-                
+
+                # Restore HUD command echo after OCR check
+                if source_command:
+                    restore_hud_command_echo(source_command)
+
                 # Reconnect eye tracker
                 actions.user.connect_ocr_eye_tracker()
-                
+
                 # Return True if more than one match
                 result = len(text_matches) > 1
                 print(f"Disambiguation check for '{target_text}': {len(text_matches)} matches found, needs_disambiguation={result}")
                 return result
             else:
                 print("Could not find gaze_ocr_controller for disambiguation check")
+                # Restore HUD command echo even on failure
+                if source_command:
+                    restore_hud_command_echo(source_command)
                 # Reconnect eye tracker
                 actions.user.connect_ocr_eye_tracker()
                 return False
-            
+
         except Exception as e:
             print(f"Error checking disambiguation need: {str(e)}")
+            # Restore HUD command echo even on error
+            if source_command:
+                restore_hud_command_echo(source_command)
             actions.user.connect_ocr_eye_tracker()
             return False
 
-    def get_text_coordinates_generator(target_text: str, disambiguate: bool = True):
+    def get_text_coordinates_generator(target_text: str, disambiguate: bool = True, source_command: str = None):
         """Generator version that yields multiple matches for disambiguation"""
         print(f"GENERATOR DEBUG: get_text_coordinates_generator called with target='{target_text}', disambiguate={disambiguate}")
         try:
             # Disconnect eye tracker to scan full screen
             actions.user.disconnect_ocr_eye_tracker()
-            
+
+            # Clear HUD logs before OCR scan
+            if source_command:
+                clear_hud_event_log()
+
             # Try different approaches to access the OCR controller
             import sys
             gaze_ocr_controller = None
@@ -523,6 +598,9 @@ class OCRTextDetectionActions:
                         # Single match - return coordinates directly
                         match = text_matches[0]
                         print(f"Found single '{target_text}' at center coordinates: {match['coords']}")
+                        # Restore HUD command echo after OCR
+                        if source_command:
+                            restore_hud_command_echo(source_command)
                         actions.user.connect_ocr_eye_tracker()
                         return match['coords']
                     elif disambiguate:
@@ -561,7 +639,7 @@ class OCRTextDetectionActions:
                         if closest_word:
                             actual_target_coords = closest_word['coords']
                             print(f"COORDINATE FIX: Using closest word '{closest_word['text']}' at {actual_target_coords} (distance: {min_distance:.1f}px)")
-                            
+
                             # Trace the coordinate fix
                             from ..debug.coordinate_tracer import coord_tracer
                             coord_tracer.log_event('fixed', actual_target_coords, 'coordinate_fix', {
@@ -570,12 +648,19 @@ class OCRTextDetectionActions:
                                 'word_text': closest_word['text'],
                                 'distance': min_distance
                             })
-                            
+
+                            # Restore HUD command echo after OCR
+                            if source_command:
+                                restore_hud_command_echo(source_command)
+
                             actions.user.connect_ocr_eye_tracker()
                             return actual_target_coords
                         else:
                             # Fallback to chosen match if something goes wrong
                             print("COORDINATE FIX: Warning - couldn't find closest word, using selected match")
+                            # Restore HUD command echo after OCR
+                            if source_command:
+                                restore_hud_command_echo(source_command)
                             actions.user.connect_ocr_eye_tracker()
                             return chosen_match['coords']
                     else:
@@ -593,34 +678,51 @@ class OCRTextDetectionActions:
                             
                             if best_match:
                                 print(f"Selected closest '{target_text}' at {best_match['coords']} (distance: {min_distance:.1f}px)")
+                                # Restore HUD command echo after OCR
+                                if source_command:
+                                    restore_hud_command_echo(source_command)
                                 actions.user.connect_ocr_eye_tracker()
                                 return best_match['coords']
                         else:
                             # No cursor found, use first match
                             match = text_matches[0]
                             print(f"No cursor found, using first '{target_text}' at {match['coords']}")
+                            # Restore HUD command echo after OCR
+                            if source_command:
+                                restore_hud_command_echo(source_command)
                             actions.user.connect_ocr_eye_tracker()
                             return match['coords']
                 
                 print(f"Text '{target_text}' not found in OCR results")
             else:
                 print("Could not find gaze_ocr_controller via any method")
-            
+
+            # Restore HUD command echo after OCR
+            if source_command:
+                restore_hud_command_echo(source_command)
+
             # Reconnect eye tracker
             actions.user.connect_ocr_eye_tracker()
             return None
-            
+
         except Exception as e:
             print(f"Error getting text coordinates: {str(e)}")
+            # Restore HUD command echo even on error
+            if source_command:
+                restore_hud_command_echo(source_command)
             actions.user.connect_ocr_eye_tracker()
             return None
 
-    def check_if_disambiguation_needed(target_text: str) -> bool:
+    def check_if_disambiguation_needed(target_text: str, source_command: str = None) -> bool:
         """Check if multiple matches exist for the target text without doing full disambiguation"""
         try:
             # Disconnect eye tracker to scan full screen
             actions.user.disconnect_ocr_eye_tracker()
-            
+
+            # Clear HUD logs before OCR check
+            if source_command:
+                clear_hud_event_log()
+
             # Try different approaches to access the OCR controller
             import sys
             gaze_ocr_controller = None
@@ -667,21 +769,31 @@ class OCRTextDetectionActions:
                         score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
                         if score >= fuzzy_threshold:
                             text_matches.append(word_info)
-                
+
+                # Restore HUD command echo after OCR check
+                if source_command:
+                    restore_hud_command_echo(source_command)
+
                 # Reconnect eye tracker
                 actions.user.connect_ocr_eye_tracker()
-                
+
                 # Return True if more than one match
                 result = len(text_matches) > 1
                 print(f"Disambiguation check for '{target_text}': {len(text_matches)} matches found, needs_disambiguation={result}")
                 return result
             else:
                 print("Could not find gaze_ocr_controller for disambiguation check")
+                # Restore HUD command echo even on failure
+                if source_command:
+                    restore_hud_command_echo(source_command)
                 # Reconnect eye tracker
                 actions.user.connect_ocr_eye_tracker()
                 return False
-            
+
         except Exception as e:
             print(f"Error checking disambiguation need: {str(e)}")
+            # Restore HUD command echo even on error
+            if source_command:
+                restore_hud_command_echo(source_command)
             actions.user.connect_ocr_eye_tracker()
             return False
