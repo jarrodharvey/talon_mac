@@ -466,8 +466,42 @@ class Actions:
             actions.key(action_button)
         else:
             actions.key(directions[random.randint(0,3)])
+    def calculate_betterinput_duration(action_str: str) -> int:
+        """Calculate total duration of a betterinput sequence in milliseconds
+
+        Parses sleep symbols like |500ms, |2000ms, |1s, etc.
+        Returns total sleep duration in milliseconds.
+        """
+        import re
+        total_ms = 0
+        # Match sleep symbols: |<number><unit> where unit is optional (ms/s)
+        sleep_pattern = r'\|(\d+)(ms|s)?'
+        matches = re.findall(sleep_pattern, action_str)
+
+        for duration, unit in matches:
+            duration_int = int(duration)
+            if unit == 's':
+                total_ms += duration_int * 1000
+            else:  # 'ms' or empty (defaults to ms)
+                total_ms += duration_int
+
+        return total_ms
+
     def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True, wait_before: int = 0, stop_first: bool = True, initial_button: str = "", press_final_button: str = ""):
-        """Presses a button if an image is present or not present on the screen"""
+        """Presses a button if an image is present or not present on the screen
+
+        Args:
+            action_button: The button to press while waiting for image condition
+            image_name: Path to the image file to detect
+            wait_time: Interval in milliseconds to check for the image
+            image_present: If True, press action_button while image is present; if False, while absent
+            wait_before: Delay in milliseconds before starting the image check (will be auto-adjusted
+                        if initial_button contains a betterinput sequence with sleep symbols)
+            stop_first: If True, call game_stop() before starting
+            initial_button: Optional button/sequence to press before image check starts.
+                           Accepts simple keys ("return") or betterinput sequences ("space | 500ms | return")
+            press_final_button: Optional button to press after image condition is met
+        """
         global conditional_image_job
         global conditional_image_delay_job
         if stop_first:
@@ -480,12 +514,24 @@ class Actions:
             else:
                 conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, False, press_final_button))
 
+        # Calculate adjusted wait_before to ensure conditional check doesn't start
+        # until initial_button sequence completes
+        adjusted_wait_before = wait_before
         if initial_button:
-            # Press initial button asynchronously after game_stop settles
-            cron.after("50ms", lambda: actions.key(initial_button))
+            # Calculate duration of initial_button sequence
+            initial_button_duration = actions.user.calculate_betterinput_duration(initial_button)
+            if initial_button_duration > 0:
+                # 50ms for cron.after delay + sequence duration + 50ms buffer
+                minimum_wait = 50 + initial_button_duration + 50
+                # Use the maximum of user-specified wait_before and calculated minimum
+                adjusted_wait_before = max(wait_before, minimum_wait)
 
-        if wait_before > 0:
-            conditional_image_delay_job = cron.after(f"{wait_before}ms", start_conditional_check)
+            # Press initial button asynchronously after game_stop settles
+            # Supports both simple keys ("return") and betterinput sequences ("space | 500ms | return")
+            cron.after("50ms", lambda: actions.user.betterinput_simple(initial_button))
+
+        if adjusted_wait_before > 0:
+            conditional_image_delay_job = cron.after(f"{adjusted_wait_before}ms", start_conditional_check)
         else:
             start_conditional_check()
     def conditional_image_button_press_helper(action_button: str, image_name: str, image_present: bool, press_final_button: str = ""):
@@ -573,4 +619,11 @@ class Actions:
             actions.key(f"{forward_button}:down")
     def betterinput_simple(action_str: str):
         """Simple wrapper for betterinput with no bindings or options"""
-        actions.user.betterinput(action_str, "", {})   
+        actions.user.betterinput(action_str, "", {})
+
+    def betterinput_with_sleep(action_str: str, sleep_time: str):
+        """BetterInput with sleep_every_nth for games that can't queue inputs"""
+        actions.user.betterinput(action_str, "", {
+            "sleep_default": sleep_time,
+            "sleep_every_nth": 1
+        })
