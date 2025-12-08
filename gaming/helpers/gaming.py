@@ -98,6 +98,34 @@ mod.setting(
     desc="Use pathfinding navigation instead of mouse clicking for OCR button"
 )
 
+mod.setting(
+    "grid_unit_width",
+    type=int,
+    default=0,
+    desc="Width of one grid square for discrete grid navigation (0 = disabled)"
+)
+
+mod.setting(
+    "grid_unit_height",
+    type=int,
+    default=0,
+    desc="Height of one grid square for discrete grid navigation (0 = disabled)"
+)
+
+mod.setting(
+    "grid_key_hold_time",
+    type=int,
+    default=200,
+    desc="How long to hold each key during grid navigation (milliseconds)"
+)
+
+mod.setting(
+    "grid_key_interval",
+    type=int,
+    default=50,
+    desc="Delay between grid key presses (milliseconds)"
+)
+
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -242,11 +270,30 @@ class Actions:
         print("DIAGONAL END")
         return
     def conditional_click():
-        """Super click if the mouse is not dragging,  otherwise button down"""
-        if mouse_dragging == "no":
-            actions.user.super_click()
+        """Navigate to mouse if pathfinding enabled, otherwise click"""
+        uses_pathfinding = settings.get("user.uses_pathfinding")
+        grid_width = settings.get("user.grid_unit_width")
+        grid_height = settings.get("user.grid_unit_height")
+
+        print(f"conditional_click: uses_pathfinding={uses_pathfinding}, grid_units={grid_width}x{grid_height}")
+
+        if uses_pathfinding:
+            # Check if grid navigation is configured
+            if grid_width and grid_height and grid_width > 0 and grid_height > 0:
+                # Grid mode - discrete navigation, no camera drift!
+                print("Triggering discrete grid navigation")
+                actions.user.navigate_to_mouse_grid()
+            else:
+                # Continuous pathfinding mode - navigate game cursor to mouse position
+                print("Triggering continuous mouse-following pathfinding navigation")
+                actions.user.navigate_to_mouse_position()
         else:
-            actions.user.mouse_button_down(0)
+            # Mouse click mode - original behavior
+            print(f"Using click mode (mouse_dragging={mouse_dragging})")
+            if mouse_dragging == "no":
+                actions.user.super_click()
+            else:
+                actions.user.mouse_button_down(0)
     def super_click():
         """Click the mouse"""
         ctrl.mouse_click(button=0, down=True)

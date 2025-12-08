@@ -8,9 +8,10 @@ settings():
     user.super_click_duration = 0.8
     user.travel_distance = 1
     user.navigation_mode = "vertical"
-    user.game_action_button = "return" 
+    user.game_action_button = "return"
     user.highlight_proximity_x = 80
     user.highlight_proximity_y = 20
+    user.highlight_image = "octopath_grid_move.png"
     user.cursor_directory = "octopath_traveler"
     user.grid_column_threshold = 500
     user.grid_row_threshold = 40
@@ -18,6 +19,10 @@ settings():
     user.uses_wasd = true
     user.navigation_interval = 500
     user.default_action_button_interval = 1
+    user.grid_unit_width = 45
+    user.grid_unit_height = 45
+    user.grid_key_hold_time = 150
+    user.grid_key_interval = 150
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal
 tag(): user.wasd_directions
@@ -83,6 +88,8 @@ key(`):
 
 ^actions <number>$: user.set_pathfinding_global_variable("default_action_button_count", number)
 
+^calibrate grid$: user.calibrate_grid_units()
+
 bang: key("return")
 
 {user.wasd_arrows} [<number>]: 
@@ -93,7 +100,11 @@ bang: key("return")
 
 ^unboost$: key("q")
 
+^ultimate$: key("i")
+
 ^dang$: user.betterinput_simple("s |1000ms return")
+
+^wishvale$: key("e")
 
 ^boost [<number>]$: 
     user.press_key_x_times("e", number or 1, 0.5)

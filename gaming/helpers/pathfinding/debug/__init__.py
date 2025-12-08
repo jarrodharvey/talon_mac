@@ -13,6 +13,71 @@ mod = Module()
 
 # Global variable to store the crosshair overlay
 _crosshair_overlay = None
+_target_crosshair_overlay = None
+
+class TargetCrosshairOverlay:
+    """Simple canvas overlay for showing the current navigation target"""
+
+    def __init__(self, target_pos):
+        self.target_pos = target_pos
+
+        # Create full-screen canvas
+        active_window = ui.active_window()
+        if active_window.id == -1:
+            rect = ui.main_screen().rect
+        else:
+            rect = active_window.screen.rect
+
+        self.canvas = canvas.Canvas.from_rect(rect)
+        self.canvas.register("draw", self._draw)
+        self.canvas.blocks_mouse = False  # Don't interfere with mouse interactions
+
+    def update_target(self, target_pos):
+        """Update the target position and redraw"""
+        self.target_pos = target_pos
+
+    def show(self):
+        """Show the crosshair overlay"""
+        self.canvas.show()
+        self.canvas.freeze()
+
+    def hide(self):
+        """Hide the crosshair overlay"""
+        self.canvas.hide()
+
+    def destroy(self):
+        """Clean up the overlay"""
+        try:
+            self.canvas.unregister("draw", self._draw)
+            self.canvas.close()
+        except:
+            pass  # Ignore errors during cleanup
+
+    def _draw(self, canvas):
+        """Draw a crosshair at the target position"""
+        paint = canvas.paint
+        paint.style = paint.Style.STROKE
+        paint.color = '00ff00ff'  # Bright green
+        paint.stroke_width = 3
+
+        target_x, target_y = self.target_pos
+        crosshair_size = 20
+
+        # Horizontal line
+        canvas.draw_line(
+            target_x - crosshair_size, target_y,
+            target_x + crosshair_size, target_y
+        )
+
+        # Vertical line
+        canvas.draw_line(
+            target_x, target_y - crosshair_size,
+            target_x, target_y + crosshair_size
+        )
+
+        # Center circle
+        paint.style = paint.Style.FILL
+        canvas.draw_circle(target_x, target_y, 3)
 
 class CrosshairOverlay:
     """Simple canvas overlay for drawing crosshair lines"""
@@ -422,19 +487,45 @@ class DebugActions:
     def hide_pathfinding_debug_markers() -> None:
         """Hide visual debug markers and crosshair lines"""
         global _crosshair_overlay
-        
+
         try:
             # Hide marker UI
             actions.user.marker_ui_hide()
-            
+
             # Hide and destroy crosshair overlay
             if _crosshair_overlay:
                 _crosshair_overlay.destroy()
                 _crosshair_overlay = None
-                
+
             print("Debug markers and crosshair lines hidden")
         except Exception as e:
             print(f"Error hiding debug markers: {e}")
+
+    def show_target_crosshair(target_pos: tuple) -> None:
+        """Show or update the target crosshair at the given position"""
+        global _target_crosshair_overlay
+
+        try:
+            if _target_crosshair_overlay:
+                # Update existing crosshair
+                _target_crosshair_overlay.update_target(target_pos)
+            else:
+                # Create new crosshair
+                _target_crosshair_overlay = TargetCrosshairOverlay(target_pos)
+                _target_crosshair_overlay.show()
+        except Exception as e:
+            print(f"Error showing target crosshair: {e}")
+
+    def hide_target_crosshair() -> None:
+        """Hide the target crosshair"""
+        global _target_crosshair_overlay
+
+        try:
+            if _target_crosshair_overlay:
+                _target_crosshair_overlay.destroy()
+                _target_crosshair_overlay = None
+        except Exception as e:
+            print(f"Error hiding target crosshair: {e}")
 
     def test_continuous_navigation(target_text: str, highlight_image: str, max_steps: int = 3, use_wasd: bool = False, countdown: int = 0) -> None:
         """Test continuous navigation with limited steps for safety"""
@@ -460,10 +551,12 @@ class DebugActions:
 
 __all__ = [
     "debug_all_text_coordinates",
-    "debug_cursor_position", 
+    "debug_cursor_position",
     "debug_pathfinding_state",
     "show_pathfinding_debug_markers",
     "hide_pathfinding_debug_markers",
+    "show_target_crosshair",
+    "hide_target_crosshair",
     "test_continuous_navigation",
     "test_grid_analysis",
     "test_grid_navigation"

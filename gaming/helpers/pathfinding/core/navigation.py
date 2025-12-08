@@ -256,14 +256,32 @@ class CoreNavigationActions:
         navigation_mode = settings.get("user.navigation_mode")
         if navigation_mode == "grid":
             return actions.user.navigate_step_grid(target_text, highlight_image, use_wasd, max_steps, action_button, action_count, action_interval)
-        
+
         # No step limits for main navigation
-            
+
         try:
             # Get current coordinates - use pre-resolved coordinates if provided
             if target_coords:
-                text_coords = target_coords
-                print(f"Using pre-resolved coordinates for '{target_text}': {text_coords}")
+                # Mouse-following mode: continuously track mouse position with hysteresis
+                from talon import ctrl
+                current_mouse_pos = ctrl.mouse_pos()
+
+                # Calculate distance from original target
+                distance_moved = actions.user.calculate_distance(target_coords, current_mouse_pos)
+
+                # Only update target if mouse moved significantly (prevents jitter)
+                if distance_moved > 30:
+                    print(f"Mouse moved {distance_moved:.1f}px, updating target: {target_coords} -> {current_mouse_pos}")
+                    text_coords = current_mouse_pos
+                else:
+                    text_coords = target_coords
+
+                # Show/update target crosshair
+                actions.user.show_target_crosshair(text_coords)
+
+                # Override navigation mode to unified for mouse-following (grid allows all directions)
+                navigation_mode = "unified"
+                print(f"Mouse-following mode: overriding navigation mode to 'unified'")
             else:
                 text_coords = actions.user.get_text_coordinates(target_text)
                 if not text_coords:
@@ -301,7 +319,9 @@ class CoreNavigationActions:
             # Enhanced loop detection with tiebreaker mode - detect repeating patterns of any length
             if len(cursor_position_history) >= 4:
                 # Robust pattern detection: find any repeating sequence of positions
-                pattern_detected, detected_pattern = actions.user.detect_repeating_pattern(cursor_position_history)
+                # Use higher repetition threshold for mouse-following (fixed target) to reduce false positives
+                required_reps = 5 if target_coords else 3
+                pattern_detected, detected_pattern = actions.user.detect_repeating_pattern(cursor_position_history, required_repetitions=required_reps)
                 
                 if pattern_detected:
                     print(f"TIEBREAKER MODE: Repeating pattern detected!")
@@ -319,12 +339,13 @@ class CoreNavigationActions:
                     if closest_position:
                         # Check if we're already at the closest position
                         distance_to_closest = actions.user.calculate_distance(highlight_center, closest_position)
-                        
+                        distance_to_target = actions.user.calculate_distance(closest_position, text_coords)
+
                         # Use more lenient distance threshold for disambiguation targets
                         tiebreaker_threshold = 50 if target_coords else 30
                         if distance_to_closest <= tiebreaker_threshold:
                             print(f"TIEBREAKER SUCCESS: At closest reachable position to target! (within {tiebreaker_threshold}px)")
-                            print(f"TIEBREAKER DEBUG: Current: {closest_position}, Target: {text_coords} - Distance: {closest_distance:.1f}px")
+                            print(f"TIEBREAKER DEBUG: Closest pos: {closest_position}, Target: {text_coords} - Distance to target: {distance_to_target:.1f}px")
                             print(f"Current: {highlight_center}, Closest position: {closest_position}, Target: {text_coords}")
                             if action_button:
                                 print(f"Pressing action button: {action_button}")
@@ -538,6 +559,9 @@ class CoreNavigationActions:
             navigation_job = None
             print("Stopped continuous navigation")
 
+        # Hide target crosshair when navigation stops
+        actions.user.hide_target_crosshair()
+
     def navigate_continuously(target_text: str, highlight_image: str, use_wasd: bool = True, max_steps: int = None, extra_step: bool = False, action_button: str = None, action_count: int = 1, action_interval: float = 0.1) -> None:
         """Start continuous navigation with configurable input method and behavior"""
         actions.user.start_continuous_navigation(target_text, highlight_image, use_wasd, max_steps, extra_step, action_button, action_count, action_interval)
@@ -616,6 +640,394 @@ class CoreNavigationActions:
     def navigate_to_word_wasd_with_multiple_actions(word: str, count: int, interval: int) -> None:
         """Navigate to any word found via OCR using WASD and press the configured action button multiple times"""
         actions.user.navigate_to_word(word, True, None, settings.get("user.game_action_button"), False, count, interval)
+
+    def navigate_to_mouse_position(use_wasd: bool = None, action_count: int = None, action_interval: float = None) -> None:
+        """Navigate game cursor to current mouse position using pathfinding"""
+        from talon import ctrl
+
+        # Stop any existing navigation
+        actions.user.game_stop()
+
+        # Capture mouse position (frozen for navigation duration)
+        mouse_coords = ctrl.mouse_pos()
+
+        # Get configuration
+        highlight_image = settings.get("user.highlight_image")
+        use_wasd = settings.get("user.uses_wasd") if use_wasd is None else use_wasd
+        action_button = settings.get("user.game_action_button")
+        action_count = int(pathfinding_settings.default_action_button_count) if action_count is None else action_count
+        action_interval = settings.get("user.default_action_button_interval") if action_interval is None else action_interval
+
+        # Debug logging
+        print(f"=== MOUSE-FOLLOWING NAVIGATION STARTED ===")
+        print(f"Mouse target: {mouse_coords}")
+        print(f"Action button: {action_button} (count: {action_count})")
+
+        # Start continuous navigation with mouse coordinates as target
+        actions.user.start_continuous_navigation(
+            target_text="<mouse position>",
+            highlight_image=highlight_image,
+            use_wasd=use_wasd,
+            max_steps=None,
+            extra_step=False,
+            action_button=action_button,
+            action_count=action_count,
+            action_interval=action_interval,
+            target_coords=mouse_coords  # KEY: Pre-resolved coordinates bypass OCR
+        )
+
+    def calibrate_grid_units() -> None:
+        """Auto-calibrate grid unit dimensions by measuring background/cursor movement"""
+        from talon import app, ui, screen as talon_screen
+        import time
+
+        print("=== UNIVERSAL GRID CALIBRATION START ===")
+
+        # Get timing settings
+        key_hold_ms = settings.get("user.grid_key_hold_time", 175)
+        key_hold_sec = key_hold_ms / 1000.0
+        use_wasd = settings.get("user.uses_wasd")
+
+        # Helper function to capture screen
+        def capture_screen():
+            try:
+                from talon import screen as talon_screen
+                # Use correct Talon API for screen capture
+                main_screen = ui.main_screen()
+                img = talon_screen.capture_rect(main_screen.rect)
+                return img
+            except Exception as e:
+                print(f"Screenshot failed: {e}")
+                return None
+
+        # Helper function to detect background shift using template matching with pypng
+        def detect_background_shift(img1, img2):
+            """Detect pixel shift between two images using template matching with pypng"""
+            import tempfile
+            import os
+
+            try:
+                # Save Talon images to temporary files
+                temp_dir = tempfile.gettempdir()
+                img1_path = os.path.join(temp_dir, "talon_grid_calib_before.png")
+                img2_path = os.path.join(temp_dir, "talon_grid_calib_after.png")
+
+                img1.save(img1_path)
+                img2.save(img2_path)
+                print(f"Saved temp images for comparison")
+
+                # Use pypng (pure Python, no code signing issues) for image loading
+                try:
+                    import png
+                    import numpy as np
+                except ImportError:
+                    print("pypng not available - cannot perform background shift detection")
+                    return (0, 0)
+
+                # Load images using pypng
+                def load_png_as_array(filepath):
+                    """Load PNG file into numpy array using pypng"""
+                    reader = png.Reader(filename=filepath)
+                    w, h, pixels, metadata = reader.read()
+                    # Convert to numpy array
+                    pixel_array = np.array(list(pixels))
+                    # Reshape based on color type (RGB or RGBA)
+                    if metadata['greyscale']:
+                        return pixel_array
+                    elif metadata['alpha']:
+                        # RGBA - 4 channels
+                        return pixel_array.reshape(h, w, 4)
+                    else:
+                        # RGB - 3 channels
+                        return pixel_array.reshape(h, w, 3)
+
+                before_arr = load_png_as_array(img1_path)
+                after_arr = load_png_as_array(img2_path)
+
+                print(f"Loaded images: {before_arr.shape}")
+
+                # Take a distinctive patch from center-left of first image (avoiding cursor area)
+                # Cursor is typically center or center-right, so we sample left side
+                center_x = before_arr.shape[1] // 3  # 1/3 from left
+                center_y = before_arr.shape[0] // 2  # Middle height
+                patch_size = 100
+
+                # Extract template patch
+                template_y1 = max(0, center_y - patch_size//2)
+                template_y2 = min(before_arr.shape[0], center_y + patch_size//2)
+                template_x1 = max(0, center_x - patch_size//2)
+                template_x2 = min(before_arr.shape[1], center_x + patch_size//2)
+
+                template = before_arr[template_y1:template_y2, template_x1:template_x2]
+                print(f"Template patch: {template.shape} at ({template_x1},{template_y1})")
+
+                # Search for template in the second image
+                # We expect shifts up to ~100px for grid games
+                search_range = 100
+                best_score = float('inf')  # Lower is better (sum of squared differences)
+                best_offset = (0, 0)
+
+                # Coarse search with step=5 for speed
+                print("Searching for background shift...")
+                for dx in range(-search_range, search_range + 1, 5):
+                    for dy in range(-search_range, search_range + 1, 5):
+                        # Calculate search position
+                        search_y1 = template_y1 + dy
+                        search_y2 = template_y2 + dy
+                        search_x1 = template_x1 + dx
+                        search_x2 = template_x2 + dx
+
+                        # Bounds check
+                        if search_y1 < 0 or search_x1 < 0:
+                            continue
+                        if search_y2 > after_arr.shape[0] or search_x2 > after_arr.shape[1]:
+                            continue
+
+                        # Extract comparison region
+                        search_region = after_arr[search_y1:search_y2, search_x1:search_x2]
+
+                        # Skip if shapes don't match
+                        if search_region.shape != template.shape:
+                            continue
+
+                        # Calculate difference (sum of squared differences)
+                        diff = np.sum((template.astype(float) - search_region.astype(float)) ** 2)
+
+                        if diff < best_score:
+                            best_score = diff
+                            best_offset = (dx, dy)
+
+                # Clean up temp files
+                try:
+                    os.remove(img1_path)
+                    os.remove(img2_path)
+                except:
+                    pass
+
+                print(f"Background shift detected: {best_offset} (score: {best_score:.0f})")
+                return best_offset
+
+            except Exception as e:
+                print(f"Background shift detection failed: {e}")
+                import traceback
+                traceback.print_exc()
+                return (0, 0)
+
+        app.notify("Calibrating grid... horizontal")
+
+        # === HORIZONTAL CALIBRATION ===
+        print("\n--- Horizontal Measurement ---")
+
+        # Capture initial state
+        print("Capturing initial screen and cursor position...")
+        cursor_before = actions.user.find_cursor_flexible()
+        screen_before = capture_screen()
+
+        if not cursor_before:
+            app.notify("ERROR: Cannot find cursor")
+            print("ERROR: Cannot find cursor for calibration")
+            return
+
+        print(f"Initial cursor: {cursor_before}")
+
+        # Press horizontal key
+        horizontal_key = "d" if use_wasd else "right"
+        print(f"Pressing '{horizontal_key}' (holding {key_hold_ms}ms)...")
+        actions.key(f"{horizontal_key}:down")
+        time.sleep(key_hold_sec)
+        actions.key(f"{horizontal_key}:up")
+        print("Waiting 2s for movement...")
+        time.sleep(2.0)
+
+        # Capture after state
+        print("Capturing final screen and cursor position...")
+        cursor_after = actions.user.find_cursor_flexible()
+        screen_after = capture_screen()
+
+        if not cursor_after:
+            app.notify("ERROR: Cannot find cursor after movement")
+            return
+
+        print(f"Final cursor: {cursor_after}")
+
+        # Calculate both displacements
+        cursor_shift_x = cursor_after[0] - cursor_before[0]
+        print(f"Cursor displacement: {cursor_shift_x}px")
+
+        # Determine which measurement to use
+        if abs(cursor_shift_x) > 5:
+            grid_width = abs(int(cursor_shift_x))
+            print(f"✓ Using cursor displacement: {grid_width}px (moving cursor)")
+        else:
+            # Cursor stationary - detect background shift instead
+            print("Cursor didn't move significantly (scrolling world game)")
+            print("Attempting background shift detection...")
+
+            if screen_before and screen_after:
+                bg_shift = detect_background_shift(screen_before, screen_after)
+                grid_width = abs(bg_shift[0])  # Horizontal shift
+                if grid_width > 5:
+                    print(f"✓ Using background shift: {grid_width}px (scrolling world)")
+                else:
+                    print("⚠ No significant background shift detected")
+                    grid_width = 0
+            else:
+                print("⚠ Could not capture screenshots for comparison")
+                grid_width = 0
+
+        # === VERTICAL CALIBRATION ===
+        app.notify("Measuring vertical...")
+        print("\n--- Vertical Measurement ---")
+
+        cursor_before = cursor_after  # Use previous position as starting point
+        screen_before = capture_screen()  # Capture screen before vertical movement
+
+        # Press vertical key
+        vertical_key = "s" if use_wasd else "down"
+        print(f"Pressing '{vertical_key}' (holding {key_hold_ms}ms)...")
+        actions.key(f"{vertical_key}:down")
+        time.sleep(key_hold_sec)
+        actions.key(f"{vertical_key}:up")
+        print("Waiting 2s for movement...")
+        time.sleep(2.0)
+
+        # Capture after state
+        print("Capturing final screen and cursor position...")
+        cursor_after = actions.user.find_cursor_flexible()
+        screen_after = capture_screen()
+
+        if not cursor_after:
+            app.notify("ERROR: Cannot find cursor after vertical movement")
+            return
+
+        print(f"Final cursor: {cursor_after}")
+
+        # Calculate displacement
+        cursor_shift_y = cursor_after[1] - cursor_before[1]
+        print(f"Cursor displacement: {cursor_shift_y}px")
+
+        if abs(cursor_shift_y) > 5:
+            grid_height = abs(int(cursor_shift_y))
+            print(f"✓ Using cursor displacement: {grid_height}px (moving cursor)")
+        else:
+            # Cursor stationary - detect background shift instead
+            print("Cursor didn't move significantly (scrolling world game)")
+            print("Attempting background shift detection...")
+
+            if screen_before and screen_after:
+                bg_shift = detect_background_shift(screen_before, screen_after)
+                grid_height = abs(bg_shift[1])  # Vertical shift
+                if grid_height > 5:
+                    print(f"✓ Using background shift: {grid_height}px (scrolling world)")
+                else:
+                    print("⚠ No significant background shift detected")
+                    grid_height = 0
+            else:
+                print("⚠ Could not capture screenshots for comparison")
+                grid_height = 0
+
+        # Display results
+        print(f"\n=== CALIBRATION COMPLETE ===")
+        print(f"  user.grid_unit_width = {grid_width}")
+        print(f"  user.grid_unit_height = {grid_height}")
+
+        if grid_width > 0 or grid_height > 0:
+            app.notify(f"Grid calibrated: {grid_width}x{grid_height}px")
+            print("\nAdd these values to your .talon file!")
+        else:
+            app.notify("Calibration failed - no movement detected")
+            print("\n⚠ CALIBRATION FAILED")
+            print("Possible issues:")
+            print("  - Cursor is stationary (scrolling world game)")
+            print("  - Background shift detection needed (not yet implemented)")
+            print("  - Cursor blocked by obstacle")
+
+        print("=== GRID CALIBRATION END ===")
+
+    def navigate_to_mouse_grid(use_wasd: bool = None, action_count: int = None, action_interval: float = None) -> None:
+        """Navigate game cursor to mouse using discrete grid movements - no camera drift!"""
+        from talon import ctrl
+        import time
+
+        # Get grid unit dimensions
+        grid_width = settings.get("user.grid_unit_width")
+        grid_height = settings.get("user.grid_unit_height")
+
+        if not grid_width or not grid_height:
+            print("ERROR: Grid unit dimensions not configured")
+            return
+
+        # Get current cursor position
+        highlight_center = actions.user.find_cursor_flexible()
+        if not highlight_center:
+            print("ERROR: Could not find game cursor")
+            return
+
+        # Get mouse position
+        mouse_pos = ctrl.mouse_pos()
+
+        # Calculate grid offsets
+        x_offset = mouse_pos[0] - highlight_center[0]
+        y_offset = mouse_pos[1] - highlight_center[1]
+
+        x_units = round(x_offset / grid_width)
+        y_units = round(y_offset / grid_height)
+
+        print(f"=== GRID NAVIGATION ===")
+        print(f"Cursor: {highlight_center}, Mouse: {mouse_pos}")
+        print(f"Pixel offset: ({x_offset:.0f}, {y_offset:.0f})px")
+        print(f"Grid offset: ({x_units}, {y_units}) units")
+        print(f"Grid unit size: {grid_width}x{grid_height}px")
+
+        # Build key sequence
+        use_wasd = settings.get("user.uses_wasd") if use_wasd is None else use_wasd
+        keys = []
+
+        # Vertical movement
+        if y_units > 0:
+            key = "s" if use_wasd else "down"
+            keys.extend([key] * abs(y_units))
+        elif y_units < 0:
+            key = "w" if use_wasd else "up"
+            keys.extend([key] * abs(y_units))
+
+        # Horizontal movement
+        if x_units > 0:
+            key = "d" if use_wasd else "right"
+            keys.extend([key] * abs(x_units))
+        elif x_units < 0:
+            key = "a" if use_wasd else "left"
+            keys.extend([key] * abs(x_units))
+
+        key_sequence = "".join(keys)
+        print(f"Key sequence: '{key_sequence}' ({len(keys)} moves)")
+
+        # Execute key sequence
+        key_hold_ms = settings.get("user.grid_key_hold_time", 200)
+        key_interval_ms = settings.get("user.grid_key_interval", 50)
+        key_hold_sec = key_hold_ms / 1000.0
+        key_interval_sec = key_interval_ms / 1000.0
+
+        if keys:
+            print(f"Holding each key for {key_hold_ms}ms, {key_interval_ms}ms interval between presses")
+            for key in keys:
+                actions.key(f"{key}:down")
+                time.sleep(key_hold_sec)
+                actions.key(f"{key}:up")
+                time.sleep(key_interval_sec)
+
+        # Press action button
+        action_button = settings.get("user.game_action_button")
+        action_count = int(pathfinding_settings.default_action_button_count) if action_count is None else action_count
+
+        if action_button and action_count > 0:
+            time.sleep(0.1)  # Brief pause before action
+            print(f"Pressing action button: {action_button} (x{action_count})")
+            for _ in range(action_count):
+                actions.key(action_button)
+                time.sleep(0.1)
+
+        print("Grid navigation complete!")
 
     def navigate_to_word_generator(word: str, use_wasd: bool = None, max_steps: int = None, action_button: str = None, use_configured_action: bool = False, action_count: int = None, action_interval: float = None):
         """Generator version of navigate_to_word that supports disambiguation"""
