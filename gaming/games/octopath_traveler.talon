@@ -4,7 +4,7 @@ app: moonlight
 -
 
 settings():
-    key_wait = 17
+    key_hold = 16
     user.super_click_duration = 0.8
     user.travel_distance = 1
     user.navigation_mode = "vertical"
@@ -32,6 +32,8 @@ parrot(tch):
 
 # Automated dialogue advancement with different speeds
 ^dialogue$: user.set_repeat_button("return", 6)
+^chat$: user.set_repeat_button("return", 2)
+^exposition$: user.set_repeat_button("return", 10)
 ^battle$: user.set_repeat_button("return", 0.5)
 
 ^stop$: user.game_stop()
@@ -57,6 +59,10 @@ parrot(tch):
     user.betterinput_with_sleep("return:3 | c:2", "1000ms")
 
 ^dub$: user.betterinput_with_sleep("return:2", "2000ms")
+double$: 
+    key("return")
+    sleep(2000ms)
+    key("return")
 ^dack$: user.betterinput_with_sleep("c:2", "2000ms")
 
 # Visual debug markers for pathfinding
@@ -68,7 +74,6 @@ parrot(tch):
     user.hide_pathfinding_debug_markers()
 
 key(`):
-    user.set_repeat_button("return", 2)
     user.conditional_image_button_press("return", "path_chat.png", 2500, true, 0, true, "return")
 
 ^walk$: user.set_global_variable("repeat_button_speed", 750)
