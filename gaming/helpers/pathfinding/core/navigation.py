@@ -820,12 +820,12 @@ class CoreNavigationActions:
 
         # Capture initial state
         print("Capturing initial screen and cursor position...")
-        cursor_before = actions.user.find_cursor_flexible()
+        cursor_before = actions.user.find_grid_cursor()
         screen_before = capture_screen()
 
         if not cursor_before:
-            app.notify("ERROR: Cannot find cursor")
-            print("ERROR: Cannot find cursor for calibration")
+            app.notify("ERROR: Cannot find grid cursor")
+            print("ERROR: Cannot find grid cursor for calibration")
             return
 
         print(f"Initial cursor: {cursor_before}")
@@ -841,7 +841,7 @@ class CoreNavigationActions:
 
         # Capture after state
         print("Capturing final screen and cursor position...")
-        cursor_after = actions.user.find_cursor_flexible()
+        cursor_after = actions.user.find_grid_cursor()
         screen_after = capture_screen()
 
         if not cursor_after:
@@ -893,11 +893,11 @@ class CoreNavigationActions:
 
         # Capture after state
         print("Capturing final screen and cursor position...")
-        cursor_after = actions.user.find_cursor_flexible()
+        cursor_after = actions.user.find_grid_cursor()
         screen_after = capture_screen()
 
         if not cursor_after:
-            app.notify("ERROR: Cannot find cursor after vertical movement")
+            app.notify("ERROR: Cannot find grid cursor after vertical movement")
             return
 
         print(f"Final cursor: {cursor_after}")
@@ -958,9 +958,9 @@ class CoreNavigationActions:
             return
 
         # Get current cursor position
-        highlight_center = actions.user.find_cursor_flexible()
+        highlight_center = actions.user.find_grid_cursor()
         if not highlight_center:
-            print("ERROR: Could not find game cursor")
+            print("ERROR: Could not find grid cursor")
             return
 
         # Get mouse position
