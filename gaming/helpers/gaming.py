@@ -21,6 +21,7 @@ repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
 looking_around = "no"
+betterinput_cron_jobs = []
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -209,6 +210,7 @@ class Actions:
         conditional_image_job = None
         cron.cancel(conditional_image_delay_job)
         conditional_image_delay_job = None
+        actions.user.betterinput_cron_cancel()
         actions.user.stop_continuous_navigation()
     def get_value_from_json_file(file_path: str, key: str) -> str:
         """Get the value of a key from a JSON file"""
@@ -674,3 +676,52 @@ class Actions:
             "sleep_default": sleep_time,
             "sleep_every_nth": 1
         })
+
+    def betterinput_cron(action_str: str):
+        """Executes betterinput actions using cron, allowing other inputs during waits
+
+        Example: "space |4000ms space" - presses space, waits 4 seconds asynchronously,
+        then presses space again while allowing other inputs during the wait.
+        """
+        global betterinput_cron_jobs
+        # Cancel any existing jobs
+        actions.user.betterinput_cron_cancel()
+
+        import re
+
+        # Parse the action string
+        components = action_str.split()
+        cumulative_delay = 0
+
+        for component in components:
+            # Check if it's a sleep symbol
+            sleep_match = re.match(r'\|(\d+)(ms|s)?', component)
+            if sleep_match:
+                duration, unit = sleep_match.groups()
+                duration_int = int(duration)
+                if unit == 's':
+                    cumulative_delay += duration_int * 1000
+                else:  # 'ms' or None (defaults to ms)
+                    cumulative_delay += duration_int
+            else:
+                # It's an action, schedule it with the cumulative delay
+                if cumulative_delay == 0:
+                    # Execute immediately
+                    actions.user.betterinput_simple(component)
+                else:
+                    # Schedule with delay - need to capture component in closure properly
+                    def make_action(action):
+                        return lambda: actions.user.betterinput_simple(action)
+
+                    job = cron.after(f"{cumulative_delay}ms", make_action(component))
+                    betterinput_cron_jobs.append(job)
+
+    def betterinput_cron_cancel():
+        """Cancels all pending betterinput_cron jobs"""
+        global betterinput_cron_jobs
+        for job in betterinput_cron_jobs:
+            try:
+                cron.cancel(job)
+            except:
+                pass
+        betterinput_cron_jobs = []
