@@ -226,6 +226,58 @@ def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) ->
     
     return best_score
 
+def get_hud_log_exclusion_region():
+    """Get the screen region occupied by talon_hud event log to exclude from OCR results"""
+    try:
+        import sys
+        # Find the talon_hud display module and get event log widget position
+        for module_name, module in sys.modules.items():
+            if 'talon_hud' in module_name and 'display' in module_name:
+                if hasattr(module, 'hud') and hasattr(module.hud, 'widget_manager'):
+                    for widget in module.hud.widget_manager.widgets:
+                        if hasattr(widget, 'id') and widget.id == "event_log":
+                            if hasattr(widget, 'x') and hasattr(widget, 'y'):
+                                # Return the bounding box of the event log
+                                # Add some padding to be safe
+                                padding = 20
+                                return {
+                                    'x': widget.x - padding,
+                                    'y': widget.y - padding,
+                                    'width': widget.width + padding * 2,
+                                    'height': widget.height + padding * 2
+                                }
+    except Exception as e:
+        print(f"DEBUG: Could not get HUD log region: {e}")
+
+    # Fallback to default position if we can't detect it
+    # Default is bottom-right: x=1430, y=720, width=450, height=200
+    return {'x': 1410, 'y': 700, 'width': 490, 'height': 240}
+
+def filter_hud_log_results(text_matches):
+    """Filter out OCR results that are in the HUD log region"""
+    hud_region = get_hud_log_exclusion_region()
+    print(f"DEBUG: Excluding HUD log region: x={hud_region['x']}, y={hud_region['y']}, w={hud_region['width']}, h={hud_region['height']}")
+
+    filtered_matches = []
+    excluded_count = 0
+
+    for match in text_matches:
+        coords = match.get('coords', (0, 0))
+        x, y = coords
+
+        # Check if this coordinate is inside the HUD log region
+        if (hud_region['x'] <= x <= hud_region['x'] + hud_region['width'] and
+            hud_region['y'] <= y <= hud_region['y'] + hud_region['height']):
+            print(f"DEBUG: Excluded '{match.get('text', '')}' at {coords} (inside HUD log region)")
+            excluded_count += 1
+        else:
+            filtered_matches.append(match)
+
+    if excluded_count > 0:
+        print(f"DEBUG: Filtered out {excluded_count} matches from HUD log region, {len(filtered_matches)} remaining")
+
+    return filtered_matches
+
 @mod.action_class
 class OCRTextDetectionActions:
     def get_text_coordinates(target_text: str, source_command: str = None):
@@ -344,7 +396,11 @@ class OCRTextDetectionActions:
                             print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
                         else:
                             print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
-                
+
+                # Filter out results in the HUD log region
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
+
                 if text_matches:
                     global current_target_width
                     
@@ -470,11 +526,15 @@ class OCRTextDetectionActions:
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
                     fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                    
+
                     for word_info in all_words:
                         score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
                         if score >= fuzzy_threshold:
                             text_matches.append(word_info)
+
+                # Filter out results in the HUD log region
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
 
                 # Restore HUD command echo after OCR check
                 if source_command:
@@ -592,7 +652,11 @@ class OCRTextDetectionActions:
                             # Log the best score before any re-sorting
                             best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
                             print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {best_score:.2f})")
-                
+
+                # Filter out results in the HUD log region
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
+
                 if text_matches:
                     if len(text_matches) == 1:
                         # Single match - return coordinates directly
@@ -764,11 +828,15 @@ class OCRTextDetectionActions:
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
                     fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                    
+
                     for word_info in all_words:
                         score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
                         if score >= fuzzy_threshold:
                             text_matches.append(word_info)
+
+                # Filter out results in the HUD log region
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
 
                 # Restore HUD command echo after OCR check
                 if source_command:

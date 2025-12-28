@@ -6,6 +6,7 @@ Handles cursor detection using game-specific templates and flexible threshold ma
 
 from talon import Module, actions, settings
 import os
+from .text_detection import get_hud_log_exclusion_region
 
 mod = Module()
 
@@ -83,7 +84,14 @@ class TemplateMatchingActions:
                                 center_x = match.x + match.width // 2
                                 # Use bottom of middle third to prevent false proximity when cursor overlaps target
                                 center_y = match.y + 2 * match.height // 3
-                                
+
+                                # Exclude cursors in HUD log region
+                                hud_region = get_hud_log_exclusion_region()
+                                if (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
+                                    hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
+                                    print(f"  SKIPPED: Cursor at {(center_x, center_y)} is inside HUD log region, ignoring")
+                                    continue  # Try next cursor file
+
                                 if search_region:
                                     left_x, top_y, right_x, bottom_y = search_region
                                     if left_x <= center_x <= right_x and top_y <= center_y <= bottom_y:
@@ -98,22 +106,39 @@ class TemplateMatchingActions:
                                     return result
                             else:
                                 # Multiple matches - take first one and warn
-                                print(f"  WARNING: Multiple matches ({len(matches)}) for {cursor_file}, using first")
-                                match = matches[0]
-                                center_x = match.x + match.width // 2
-                                # Use bottom of middle third to prevent false proximity when cursor overlaps target
-                                center_y = match.y + 2 * match.height // 3
-                                
+                                print(f"  WARNING: Multiple matches ({len(matches)}) for {cursor_file}, filtering HUD region")
+
+                                # Filter out matches in HUD region
+                                hud_region = get_hud_log_exclusion_region()
+                                valid_matches = []
+                                for match in matches:
+                                    center_x = match.x + match.width // 2
+                                    center_y = match.y + 2 * match.height // 3
+
+                                    if not (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
+                                            hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
+                                        valid_matches.append((match, center_x, center_y))
+                                    else:
+                                        print(f"    Filtered cursor at {(center_x, center_y)} (in HUD region)")
+
+                                if not valid_matches:
+                                    print(f"  All {len(matches)} matches were in HUD region, trying next cursor")
+                                    continue
+
+                                # Use first valid match
+                                match, center_x, center_y = valid_matches[0]
+                                print(f"  Using first valid match (out of {len(valid_matches)})")
+
                                 if search_region:
                                     left_x, top_y, right_x, bottom_y = search_region
                                     if left_x <= center_x <= right_x and top_y <= center_y <= bottom_y:
                                         result = (center_x, center_y)
-                                        print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(matches)})")
+                                        print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(valid_matches)} valid)")
                                         last_successful_cursor_file = cursor_file  # Update tracking
                                         return result
                                 else:
                                     result = (center_x, center_y)
-                                    print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(matches)})")
+                                    print(f"SUCCESS: Found cursor using {cursor_file} at {result} (first of {len(valid_matches)} valid)")
                                     last_successful_cursor_file = cursor_file  # Update tracking
                                     return result
                                 
