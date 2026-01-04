@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import random
+import re
 from datetime import date
 
 # Global variables
@@ -503,18 +504,43 @@ class Actions:
         # returns true with a specific image of piece on the screen.
         image_coordinates = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}")
         return(len(image_coordinates) > 0)
-    def start_grinding(action_button: str, interval: int, battle_image: str):
-        """Start grinding in a game"""
+    def start_grinding(action_button: str, interval: int, battle_image: str, dir_hold: int = 0, victory_image: str = ""):
+        """Start grinding in a game
+
+        Args:
+            action_button: Button to press during battle and victory screens
+            interval: Time in milliseconds between grinding attempts
+            battle_image: Image to detect for battle state
+            dir_hold: Time in milliseconds to hold direction keys (default: 0 for instant press)
+            victory_image: Image to detect for victory screen (default: "" for no victory detection)
+        """
         global grinding_job
         actions.user.game_stop()
-        grinding_job = cron.interval(f"{interval}ms", lambda: actions.user.grinding(action_button, battle_image))
-    def grinding(action_button: str, battle_image: str):
-        """If the battle image is on the screen then press the action button, otherwise press a random direction button"""
-        directions = ["left", "right", "up", "down"]
+        grinding_job = cron.interval(f"{interval}ms", lambda: actions.user.grinding(action_button, battle_image, dir_hold, victory_image))
+    def grinding(action_button: str, battle_image: str, dir_hold: int = 0, victory_image: str = ""):
+        """If the battle or victory image is on the screen then press the action button, otherwise press a random direction button"""
+        use_wasd = settings.get("user.uses_wasd")
+        if use_wasd:
+            directions = ["a", "d", "w", "s"]  # left, right, up, down in WASD
+        else:
+            directions = ["left", "right", "up", "down"]
+
+        # Check for battle or victory screen
         if actions.user.image_appeared_on_screen(battle_image):
             actions.key(action_button)
+        elif victory_image and actions.user.image_appeared_on_screen(victory_image):
+            actions.key(action_button)
         else:
-            actions.key(directions[random.randint(0,3)])
+            # Walk around looking for battles
+            direction = directions[random.randint(0,3)]
+            if dir_hold > 0:
+                # Hold the key for specified duration
+                actions.key(f"{direction}:down")
+                time.sleep(dir_hold / 1000.0)  # Convert ms to seconds
+                actions.key(f"{direction}:up")
+            else:
+                # Instant press
+                actions.key(direction)
     def calculate_betterinput_duration(action_str: str) -> int:
         """Calculate total duration of a betterinput sequence in milliseconds
 
@@ -725,3 +751,14 @@ class Actions:
             except:
                 pass
         betterinput_cron_jobs = []
+    def simple_math(expression: str) -> float:
+        """Evaluates a simple math expression and returns the result"""
+        try:
+            # Only allow safe characters
+            if not re.match(r'^[0-9+\-*/().\s]+$', expression):
+                raise ValueError("Invalid characters in expression")
+            result = eval(expression)
+            return result
+        except Exception as e:
+            print(f"Error evaluating expression: {e}")
+            return 0

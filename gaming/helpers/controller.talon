@@ -25,7 +25,6 @@ gamepad(west:down):
     user.game_stop()
     user.game_tracker_on()
 gamepad(west:up): 
-    user.game_stop()
     user.game_tracker_off()
 
 gamepad(r2:down): user.enable_ocr_click_button()

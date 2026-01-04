@@ -1,0 +1,21 @@
+list: user.vocabulary
+user.active_manual_game: octopath traveler
+mode: user.game
+app: moonlight
+-
+
+cover: other
+over: other
+channel: journal
+requests: quests
+land: learned
+pope: helper
+oil: hire
+hope: helper
+help us: helper
+finalize: analyze
+buff: bash
+bullet: olive
+penalize: analyze
+hand ducks: handaxe
+hand ax: handaxe
