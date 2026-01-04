@@ -4,4 +4,5 @@ mode: user.game
 
 ^<user.timestamped_prose>$:
     user.move_cursor_to_word(timestamped_prose)
-    user.super_click()
+    #user.super_click()
+    mouse_click(0)

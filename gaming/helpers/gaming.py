@@ -49,6 +49,7 @@ mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
 mod.tag("pathfinding_cubes", "Tag for games that support cubes pathfinding navigation")
+mod.tag("panning", "Tag for panning the camera in RTS style games")
 
 mod.setting(
     "travel_distance",
@@ -57,6 +58,12 @@ mod.setting(
     desc="Controls the speed at which a character moves in a game"
 )
 
+mod.setting(
+    "keep_tracker_on_ocr",
+    type=bool,
+    default=False,
+    desc="Keep the eye tracker on when using OCR click/pathfinding"
+)
 
 mod.setting(
     "forward_button",
@@ -445,7 +452,11 @@ class Actions:
     def enable_ocr_click_button():
         """Enables OCR click or pathfinding based on game settings"""
         actions.user.game_stop()
-        actions.user.disconnect_ocr_eye_tracker()
+
+        if not settings.get("user.keep_tracker_on_ocr"):
+            actions.user.disconnect_ocr_eye_tracker()
+        else:
+            actions.user.connect_ocr_eye_tracker()
         
         # Check if current game uses pathfinding instead of mouse clicking
         if settings.get("user.uses_pathfinding"):
@@ -468,7 +479,11 @@ class Actions:
     
     def disable_ocr_click_button():
         """Disables both OCR click and pathfinding modes"""
-        actions.user.connect_ocr_eye_tracker()
+
+        # No need to reconnect if already connected
+        if not settings.get("user.keep_tracker_on_ocr"):
+            actions.user.connect_ocr_eye_tracker()
+
         # Remove only the OCR tags, keep other existing tags
         current_tags = list(ctx.tags) if ctx.tags else []
         current_tags = [tag for tag in current_tags if tag not in ["user.ocr_pathfinding_button", "user.ocr_click_button"]]
