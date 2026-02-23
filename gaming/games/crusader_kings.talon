@@ -59,9 +59,11 @@ parrot(tch):
 ^tutorial$: user.set_repeat_button("return", 1)
 
 ^off$: user.game_click_spot("crusade off") 
+^situation$: user.game_click_spot("crusade situation") 
 
 # shortcuts
 ^realm$: key("f2")
+^military$: key("f3")
 ^council$: key("f4")
 ^court$: key("f5")
 ^intrigue$: key("f6")

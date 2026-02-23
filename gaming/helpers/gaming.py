@@ -66,6 +66,13 @@ mod.setting(
 )
 
 mod.setting(
+    "ocr_click_delay",
+    type=int,
+    default=0,
+    desc="Delay in milliseconds between cursor arrival and click when using OCR click mode (R2 held)"
+)
+
+mod.setting(
     "forward_button",
     type=str,
     default="w",
@@ -489,6 +496,12 @@ class Actions:
         current_tags = [tag for tag in current_tags if tag not in ["user.ocr_pathfinding_button", "user.ocr_click_button"]]
         ctx.tags = current_tags
         print("Disabled OCR navigation mode")
+    def ocr_click_with_delay():
+        """Click with configurable delay for OCR click mode"""
+        delay_ms = settings.get("user.ocr_click_delay")
+        if delay_ms > 0:
+            actions.sleep(f"{delay_ms}ms")
+        ctrl.mouse_click(button=0)
     def game_click_spot(phrase: str):
         """Clicks a spot on the screen"""
         actions.user.move_to_spot(phrase)
