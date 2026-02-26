@@ -7,6 +7,7 @@ import sys
 import random
 import re
 from datetime import date
+from typing import Any
 
 # Global variables
 mouth_open = "no"
@@ -18,11 +19,14 @@ button_presser_job = None
 grinding_job = None
 conditional_image_job = None
 conditional_image_delay_job = None
+image_click_job = None
 repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
 looking_around = "no"
 betterinput_cron_jobs = []
+
+_JSON_MISSING = object()
 
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
@@ -162,22 +166,24 @@ def str_to_bool(s):
     
 @mod.action_class
 class Actions:
-    def set_repeat_button(button: str, interval: float):
-        """Populate button_interval.json with the button and interval"""
-        # Define the path to the JSON file
+    def set_repeat_button(button: str, interval: float, action_type: str = "key"):
+        """Populate button_interval.json with the button (or image) and interval"""
         file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
-        
-        # Create the data to be written to the file
+
+        normalized_action_type = action_type.lower()
+        if normalized_action_type not in ("key", "image"):
+            raise ValueError(f"Unsupported repeat action_type: {action_type}")
+
         data = {
             "button": button,
-            "interval": interval
+            "interval": interval,
+            "action_type": normalized_action_type,
         }
-        
-        # Write the data to the JSON file
+
         with open(file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
-        print(f"Updated {file_path} with button: {button} and interval: {interval}") 
+        print(f"Updated {file_path} with {normalized_action_type}: {button} every {interval} seconds") 
     def game_stop():
         """Stop gaming mode actions"""
         global button_presser_job
@@ -185,6 +191,7 @@ class Actions:
         global mouse_mover_job
         global conditional_image_job
         global conditional_image_delay_job
+        global image_click_job
 
         actions.key("left:up")
         actions.key("right:up")
@@ -205,6 +212,7 @@ class Actions:
         actions.key("tab:up")
         actions.key("ctrl:up")
         actions.user.stop_keypress()
+        actions.user.stop_image_click()
         actions.user.set_global_variable("mouth_open", "no")
         actions.user.set_global_variable("brow_rotate", "no")
         actions.user.hud_disable_id('Text panel')
@@ -227,14 +235,16 @@ class Actions:
         conditional_image_delay_job = None
         actions.user.betterinput_cron_cancel()
         actions.user.stop_continuous_navigation()
-    def get_value_from_json_file(file_path: str, key: str) -> str:
-        """Get the value of a key from a JSON file"""
-        # Open the JSON file
+    def get_value_from_json_file(file_path: str, key: str, default: Any = _JSON_MISSING) -> Any:
+        """Get the value of a key from a JSON file, supporting optional defaults"""
         with open(file_path) as json_file:
             data = json.load(json_file)
-        
-        # Return the value of the key
-        return data[key]
+
+        if key in data:
+            return data[key]
+        if default is not _JSON_MISSING:
+            return default
+        raise KeyError(f"Key '{key}' not found in {file_path}")
     def game_tracker_on():
         """Turns on the eye tracker"""
         actions.tracking.control_toggle(True)
@@ -333,6 +343,20 @@ class Actions:
         except Exception as e:
             # Notify the user that the image could not be found or clicked
             app.notify(f"Failed to click the image: {image_name}. Error: {str(e)}")
+
+    def start_image_click(image_name: str, interval: float):
+        """Start repeatedly clicking an image at the given interval"""
+        global image_click_job
+        actions.user.game_stop()
+        interval_ms = f"{int(interval * 1000)}ms"
+        image_click_job = cron.interval(interval_ms, lambda: actions.user.click_image(image_name))
+
+    def stop_image_click():
+        """Stop any repeating image clicks"""
+        global image_click_job
+        if image_click_job:
+            cron.cancel(image_click_job)
+            image_click_job = None
     def set_global_variable(var_name: str, value: str):
         """Set a global variable"""
         globals()[var_name] = value
@@ -443,10 +467,19 @@ class Actions:
         if scope.get("user.hiss_dpad_active") == "yes":
             actions.key("right:down")
         else:
-            button_to_press = actions.user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "button")
-            interval_in_seconds = actions.user.get_value_from_json_file("/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json", "interval")
-            actions.user.start_keypress(button_to_press, interval_in_seconds)
-            actions.user.hud_publish_content(f'Pressing {button_to_press} every {interval_in_seconds} seconds', 'example', 'Pressing button')
+            config_path = "/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json"
+            button_to_press = actions.user.get_value_from_json_file(config_path, "button")
+            interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
+            action_type = actions.user.get_value_from_json_file(config_path, "action_type", default="key")
+
+            if action_type == "image":
+                actions.user.start_image_click(button_to_press, interval_in_seconds)
+                hud_message = f'Clicking {button_to_press} every {interval_in_seconds} seconds'
+            else:
+                actions.user.start_keypress(button_to_press, interval_in_seconds)
+                hud_message = f'Pressing {button_to_press} every {interval_in_seconds} seconds'
+
+            actions.user.hud_publish_content(hud_message, 'example', 'Pressing button')
     def daily_exercise_reminder():
         """Reminds me to do daily exercises"""
         date_last_called = storage.get("user.date_last_called")
