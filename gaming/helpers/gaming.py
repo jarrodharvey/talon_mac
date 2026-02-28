@@ -329,9 +329,26 @@ class Actions:
     def mouse_button_down(button: int):
         """Press down a mouse button"""
         ctrl.mouse_click(button=button, down=True)
-    def mouse_button_up(button: int):   
+    def mouse_button_up(button: int):
         """Release a mouse button"""
         ctrl.mouse_click(button=button, up=True)
+    def drag_to_text(text: str):
+        """Hold left mouse at current position, find text via OCR, drag to it, and release"""
+        target = actions.user.get_text_coordinates(text)
+        if target is None:
+            app.notify(f"drag_to_text: text '{text}' not found")
+            return
+
+        target_x, target_y = target
+        print(f"drag_to_text: dragging to '{text}' at ({target_x}, {target_y})")
+
+        try:
+            ctrl.mouse_click(button=0, down=True)
+            time.sleep(0.1)
+            ctrl.mouse_move(target_x, target_y)
+            time.sleep(0.1)
+        finally:
+            ctrl.mouse_click(button=0, up=True)
     def click_image(image_name: str):
         """Clicks on an image and notifies if the click fails."""
         try:
@@ -348,6 +365,8 @@ class Actions:
         """Start repeatedly clicking an image at the given interval"""
         global image_click_job
         actions.user.game_stop()
+        # Perform the first click straight away so the action happens on button press
+        actions.user.click_image(image_name)
         interval_ms = f"{int(interval * 1000)}ms"
         image_click_job = cron.interval(interval_ms, lambda: actions.user.click_image(image_name))
 

@@ -1,4 +1,5 @@
 {
-    "button": "return",
-    "interval": 1
+    "button": "citizen_continue.png",
+    "interval": 10,
+    "action_type": "image"
 }

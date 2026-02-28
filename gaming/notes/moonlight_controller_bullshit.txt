@@ -6,8 +6,8 @@ Click "Edit controller settings".
 
 Enable steam input (trust me).
 
-Under "Quick settings by action set" select "Nothing".
+Select Xinput as your controller.
 
-This sets all buttons on the controller to do nothing.
+Set all buttons on the controller to do nothing.
 
-If moonlight refuses to cooperate and defaults to "Default" manually set each button to do nothing.
+Restart the game.
