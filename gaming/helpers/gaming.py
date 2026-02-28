@@ -352,13 +352,13 @@ class Actions:
     def click_image(image_name: str):
         """Clicks on an image and notifies if the click fails."""
         try:
-            # Assuming actions.user.mouse_helper_move_image_relative throws an exception if the image is not found
+            # Move cursor away so it doesn't obscure template matching detection
+            actions.mouse_move(0, 0)
             actions.user.mouse_helper_move_image_relative(images_to_click_location + image_name)
             time.sleep(1)
-            actions.user.super_click()  # Assumes a click with button index 0
+            actions.user.super_click()
             time.sleep(1)
         except Exception as e:
-            # Notify the user that the image could not be found or clicked
             app.notify(f"Failed to click the image: {image_name}. Error: {str(e)}")
 
     def start_image_click(image_name: str, interval: float):

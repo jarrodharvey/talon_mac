@@ -35,3 +35,8 @@ parrot(click): user.super_click()
     repeat(repeat_times)
 
 ^bring <user.prose>$: user.drag_to_text(prose)
+
+^survive$: user.game_click_spot("citizens survive")
+^operator$: user.game_click_spot("citizen operator")
+^end cycle$: user.click_image("end_cycle.png")
+^action$: user.click_image("citizen_action.png")
