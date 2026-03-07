@@ -354,6 +354,7 @@ class Actions:
         try:
             # Move cursor away so it doesn't obscure template matching detection
             actions.mouse_move(0, 0)
+            time.sleep(0.2)
             actions.user.mouse_helper_move_image_relative(images_to_click_location + image_name)
             time.sleep(1)
             actions.user.super_click()
@@ -446,6 +447,11 @@ class Actions:
         for i in range(times):
             actions.key(key)
             time.sleep(interval)
+    def hold_key(key: str, duration_ms: int):
+        """Hold a key down for a specified duration in milliseconds"""
+        actions.key(f"{key}:down")
+        time.sleep(duration_ms / 1000)
+        actions.key(f"{key}:up")
     def noise_step(key_to_hold: str, interval: float):
         """Hold a key for a specified interval"""
         actions.user.noise_start(key_to_hold)

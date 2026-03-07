@@ -86,11 +86,12 @@ class TemplateMatchingActions:
                                 center_y = match.y + 2 * match.height // 3
 
                                 # Exclude cursors in HUD log region
-                                hud_region = get_hud_log_exclusion_region()
-                                if (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
-                                    hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
-                                    print(f"  SKIPPED: Cursor at {(center_x, center_y)} is inside HUD log region, ignoring")
-                                    continue  # Try next cursor file
+                                if not settings.get("user.disable_hud_log_exclusion"):
+                                    hud_region = get_hud_log_exclusion_region()
+                                    if (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
+                                        hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
+                                        print(f"  SKIPPED: Cursor at {(center_x, center_y)} is inside HUD log region, ignoring")
+                                        continue  # Try next cursor file
 
                                 if search_region:
                                     left_x, top_y, right_x, bottom_y = search_region
@@ -109,17 +110,24 @@ class TemplateMatchingActions:
                                 print(f"  WARNING: Multiple matches ({len(matches)}) for {cursor_file}, filtering HUD region")
 
                                 # Filter out matches in HUD region
-                                hud_region = get_hud_log_exclusion_region()
-                                valid_matches = []
-                                for match in matches:
-                                    center_x = match.x + match.width // 2
-                                    center_y = match.y + 2 * match.height // 3
-
-                                    if not (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
-                                            hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
+                                if settings.get("user.disable_hud_log_exclusion"):
+                                    valid_matches = []
+                                    for match in matches:
+                                        center_x = match.x + match.width // 2
+                                        center_y = match.y + 2 * match.height // 3
                                         valid_matches.append((match, center_x, center_y))
-                                    else:
-                                        print(f"    Filtered cursor at {(center_x, center_y)} (in HUD region)")
+                                else:
+                                    hud_region = get_hud_log_exclusion_region()
+                                    valid_matches = []
+                                    for match in matches:
+                                        center_x = match.x + match.width // 2
+                                        center_y = match.y + 2 * match.height // 3
+
+                                        if not (hud_region['x'] <= center_x <= hud_region['x'] + hud_region['width'] and
+                                                hud_region['y'] <= center_y <= hud_region['y'] + hud_region['height']):
+                                            valid_matches.append((match, center_x, center_y))
+                                        else:
+                                            print(f"    Filtered cursor at {(center_x, center_y)} (in HUD region)")
 
                                 if not valid_matches:
                                     print(f"  All {len(matches)} matches were in HUD region, trying next cursor")

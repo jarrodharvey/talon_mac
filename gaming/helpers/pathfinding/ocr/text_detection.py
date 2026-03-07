@@ -255,6 +255,10 @@ def get_hud_log_exclusion_region():
 
 def filter_hud_log_results(text_matches):
     """Filter out OCR results that are in the HUD log region"""
+    if settings.get("user.disable_hud_log_exclusion"):
+        print("DEBUG: HUD log exclusion disabled by setting, skipping filter")
+        return text_matches
+
     hud_region = get_hud_log_exclusion_region()
     print(f"DEBUG: Excluding HUD log region: x={hud_region['x']}, y={hud_region['y']}, w={hud_region['width']}, h={hud_region['height']}")
 

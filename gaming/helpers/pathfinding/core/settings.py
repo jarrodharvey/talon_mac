@@ -122,6 +122,13 @@ mod.setting(
     desc="When there are multiple action button presses, the interval in seconds between each press (e.g., 1 second)"
 )
 
+mod.setting(
+    "disable_hud_log_exclusion",
+    type=bool,
+    default=False,
+    desc="Disable HUD log exclusion zone filtering for OCR results (useful for games with UI in the bottom-right)"
+)
+
 @mod.action_class
 class Actions:
     def set_pathfinding_global_variable(var_name: str, value: int):

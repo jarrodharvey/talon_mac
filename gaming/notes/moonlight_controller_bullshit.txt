@@ -6,7 +6,7 @@ Click "Edit controller settings".
 
 Enable steam input (trust me).
 
-Select Xinput as your controller.
+Select xbox controller as your controller.
 
 Set all buttons on the controller to do nothing.
 
