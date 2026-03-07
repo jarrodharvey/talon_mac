@@ -1,5 +1,6 @@
 {
-    "button": "cit2_continue.png",
-    "interval": 10,
-    "action_type": "image"
+    "button": "x",
+    "interval": 5,
+    "action_type": "key",
+    "key_hold": 70
 }

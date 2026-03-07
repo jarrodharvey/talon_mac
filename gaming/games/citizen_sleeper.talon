@@ -13,7 +13,7 @@ parrot(tch): user.click_image("citizen_leave.png")
 
 ^bang$: user.click_image("citizen_continue.png")
 
-^dialogue$: user.set_repeat_button("cit2_continue.png", 10, "image")
+^dialogue$: user.set_repeat_image("cit2_continue.png", 10)
 
 ^down [{user.number_small}]$:
     hold_ms = user.simple_math("{number_small or 1} * 100")

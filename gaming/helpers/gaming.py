@@ -166,24 +166,30 @@ def str_to_bool(s):
     
 @mod.action_class
 class Actions:
-    def set_repeat_button(button: str, interval: float, action_type: str = "key"):
-        """Populate button_interval.json with the button (or image) and interval"""
+    def set_repeat_button(button: str, interval: float):
+        """Populate button_interval.json with the button and interval"""
         file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
-
-        normalized_action_type = action_type.lower()
-        if normalized_action_type not in ("key", "image"):
-            raise ValueError(f"Unsupported repeat action_type: {action_type}")
-
         data = {
             "button": button,
             "interval": interval,
-            "action_type": normalized_action_type,
+            "action_type": "key",
+            "key_hold": settings.get("key_hold", 0),
         }
-
         with open(file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
+        print(f"Updated {file_path} with key: {button} every {interval} seconds (hold: {data['key_hold']}ms)")
 
-        print(f"Updated {file_path} with {normalized_action_type}: {button} every {interval} seconds") 
+    def set_repeat_image(image_name: str, interval: float):
+        """Populate button_interval.json with the image and interval"""
+        file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
+        data = {
+            "button": image_name,
+            "interval": interval,
+            "action_type": "image",
+        }
+        with open(file_path, 'w') as json_file:
+            json.dump(data, json_file, indent=4)
+        print(f"Updated {file_path} with image: {image_name} every {interval} seconds") 
     def game_stop():
         """Stop gaming mode actions"""
         global button_presser_job
@@ -497,11 +503,13 @@ class Actions:
             interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
             action_type = actions.user.get_value_from_json_file(config_path, "action_type", default="key")
 
+            key_hold = actions.user.get_value_from_json_file(config_path, "key_hold", default=0)
+
             if action_type == "image":
                 actions.user.start_image_click(button_to_press, interval_in_seconds)
                 hud_message = f'Clicking {button_to_press} every {interval_in_seconds} seconds'
             else:
-                actions.user.start_keypress(button_to_press, interval_in_seconds)
+                actions.user.start_keypress(button_to_press, interval_in_seconds, int(key_hold))
                 hud_message = f'Pressing {button_to_press} every {interval_in_seconds} seconds'
 
             actions.user.hud_publish_content(hud_message, 'example', 'Pressing button')
