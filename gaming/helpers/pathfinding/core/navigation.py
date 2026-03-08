@@ -313,57 +313,6 @@ class CoreNavigationActions:
             if len(cursor_position_history) > 12:  # Keep last 12 positions for better pattern detection
                 cursor_position_history.pop(0)
             
-            # Track stable positions for better tiebreaker logic
-            actions.user.add_position_if_stable(highlight_center)
-                
-            # Enhanced loop detection with tiebreaker mode - detect repeating patterns of any length
-            if len(cursor_position_history) >= 4:
-                # Robust pattern detection: find any repeating sequence of positions
-                # Use higher repetition threshold for mouse-following (fixed target) to reduce false positives
-                required_reps = 5 if target_coords else 3
-                pattern_detected, detected_pattern = actions.user.detect_repeating_pattern(cursor_position_history, required_repetitions=required_reps)
-                
-                if pattern_detected:
-                    print(f"TIEBREAKER MODE: Repeating pattern detected!")
-                    print(f"Pattern: {' -> '.join([f'({p[0]:.0f},{p[1]:.0f})' for p in detected_pattern])}")
-                    print(f"Finding closest stable position to target...")
-                    
-                    # Find closest stable position from history to target
-                    closest_position = actions.user.find_closest_stable_position_to_target(text_coords)
-                    
-                    # Fallback to regular position history if no stable positions yet
-                    if not closest_position:
-                        print("No stable positions available, falling back to regular position history")
-                        closest_position = actions.user.find_closest_position_to_target(cursor_position_history, text_coords)
-                    
-                    if closest_position:
-                        # Check if we're already at the closest position
-                        distance_to_closest = actions.user.calculate_distance(highlight_center, closest_position)
-                        distance_to_target = actions.user.calculate_distance(closest_position, text_coords)
-
-                        # Use more lenient distance threshold for disambiguation targets
-                        tiebreaker_threshold = 50 if target_coords else 30
-                        if distance_to_closest <= tiebreaker_threshold:
-                            print(f"TIEBREAKER SUCCESS: At closest reachable position to target! (within {tiebreaker_threshold}px)")
-                            print(f"TIEBREAKER DEBUG: Closest pos: {closest_position}, Target: {text_coords} - Distance to target: {distance_to_target:.1f}px")
-                            print(f"Current: {highlight_center}, Closest position: {closest_position}, Target: {text_coords}")
-                            if action_button:
-                                print(f"Pressing action button: {action_button}")
-                                press_action_button_multiple(action_button, action_count, action_interval)
-                            actions.user.stop_continuous_navigation()
-                            return True
-                        else:
-                            print(f"Navigating to closest position: {closest_position}")
-                            # Navigate toward the closest position instead of original target
-                            text_coords = closest_position  # Override target for this step
-                            # Override navigation mode to unified for tiebreaker
-                            navigation_mode = "unified"
-                            print(f"TIEBREAKER: Overriding navigation mode to 'unified' to reach closest position")
-                    else:
-                        print(f"No position history found, stopping navigation")
-                        actions.user.stop_continuous_navigation()
-                        return False
-            
             # NEW: Find currently selected word for direction calculation
             selected_word = find_currently_selected_word(highlight_center)
             navigation_source = highlight_center  # Default fallback to cursor position
@@ -533,9 +482,6 @@ class CoreNavigationActions:
         navigation_steps_taken = 0
         last_direction_pressed = None
         cursor_position_history = []
-        
-        # Clear pattern detection tracking
-        actions.user.clear_position_tracking()
         
         navigation_interval = settings.get("user.navigation_interval")
         

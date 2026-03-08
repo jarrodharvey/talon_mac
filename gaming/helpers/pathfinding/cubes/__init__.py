@@ -378,9 +378,6 @@ class CubeActions:
         # Reset step counter, direction tracking, and position history
         # These will be managed by the cube_navigate_step function
         
-        # Clear pattern detection tracking
-        actions.user.clear_position_tracking()
-        
         # Start new navigation job with cube-specific logic
         navigation_interval = settings.get("user.navigation_interval")
         
@@ -415,37 +412,6 @@ class CubeActions:
             cursor_position_history.append(cursor_pos)
             if len(cursor_position_history) > 12:  # Keep last 12 positions for better pattern detection
                 cursor_position_history.pop(0)
-            
-            # Track stable positions for better tiebreaker logic
-            actions.user.add_position_if_stable(cursor_pos)
-                
-            # Enhanced loop detection with tiebreaker mode - detect repeating patterns of any length
-            if len(cursor_position_history) >= 4:
-                # Robust pattern detection: find any repeating sequence of positions
-                pattern_detected, detected_pattern = actions.user.detect_repeating_pattern(cursor_position_history)
-                
-                if pattern_detected:
-                    print(f"CUBE TIEBREAKER MODE: Repeating pattern detected!")
-                    print(f"Pattern: {' -> '.join([f'({p[0]:.0f},{p[1]:.0f})' for p in detected_pattern])}")
-                    print(f"Finding closest stable position to cube {number}...")
-                    
-                    # Find closest stable position from history to target
-                    closest_position = actions.user.find_closest_stable_position_to_target(target_coords)
-                    
-                    # Fallback to regular position history if no stable positions yet
-                    if not closest_position:
-                        print("No stable positions available, falling back to regular position history")
-                        closest_position = actions.user.find_closest_position_to_target(cursor_position_history, target_coords)
-                    
-                    if closest_position:
-                        # Check if we're already at the closest position
-                        distance_to_closest = actions.user.calculate_distance(cursor_pos, closest_position)
-                        
-                        if distance_to_closest <= 30:  # Within 30px of closest position
-                            print(f"CUBE TIEBREAKER SUCCESS: At closest reachable position to cube {number}!")
-                            print(f"Current: {cursor_pos}, Closest position: {closest_position}, Target: {target_coords}")
-                            actions.user.stop_continuous_navigation()
-                            return True
             
             # Calculate direction differences
             x_diff = target_coords[0] - cursor_pos[0]
