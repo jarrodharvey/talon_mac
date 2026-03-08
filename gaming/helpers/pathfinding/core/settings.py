@@ -129,6 +129,13 @@ mod.setting(
     desc="Disable HUD log exclusion zone filtering for OCR results (useful for games with UI in the bottom-right)"
 )
 
+mod.setting(
+    "phrase_adjacency_gap",
+    type=int,
+    default=80,
+    desc="Maximum pixel gap between words to consider them adjacent for phrase matching (increase for games with wide font spacing)"
+)
+
 @mod.action_class
 class Actions:
     def set_pathfinding_global_variable(var_name: str, value: int):

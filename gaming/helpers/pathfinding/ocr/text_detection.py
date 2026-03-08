@@ -78,31 +78,34 @@ def restore_hud_command_echo(command_text: str):
     except Exception as e:
         print(f"DEBUG: Could not restore HUD command echo: {e}")
 
-def find_phrase_sequences(target_text: str, ocr_lines, fuzzy_threshold: float = 0.8):
+def find_phrase_sequences(target_text: str, ocr_lines, fuzzy_threshold: float = 0.8, max_gap: int = None):
     """Find multi-word phrase sequences in OCR lines using sliding window approach (talon-gaze-ocr method)"""
     target_words = target_text.lower().split()
     if len(target_words) <= 1:
         return []  # Single words should use existing word-based matching
-    
+
+    if max_gap is None:
+        max_gap = settings.get("user.phrase_adjacency_gap", 80)
+
     phrase_matches = []
-    
+
     for line_idx, line in enumerate(ocr_lines):
         if len(line.words) < len(target_words):
             continue  # Line too short to contain the phrase
-        
+
         # Sliding window approach: try all possible positions
         for start_idx in range(len(line.words) - len(target_words) + 1):
             candidate_words = line.words[start_idx:start_idx + len(target_words)]
-            
+
             # Check if words are adjacent (only whitespace between them)
             adjacent = True
             for i in range(len(candidate_words) - 1):
                 current_word = candidate_words[i]
                 next_word = candidate_words[i + 1]
-                
+
                 # Words are adjacent if next word starts close to where current word ends
                 gap = next_word.left - (current_word.left + current_word.width)
-                if gap > 30:  # Allow reasonable whitespace gap (30px)
+                if gap > max_gap:
                     adjacent = False
                     break
             
@@ -380,26 +383,41 @@ class OCRTextDetectionActions:
                     if text_matches:
                         print(f"Found {len(text_matches)} exact word matches for '{target_text}'")
                     elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
-                        # Try fuzzy matching as fallback
-                        print(f"No exact matches for '{target_text}', trying fuzzy matching...")
-                        fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                        fuzzy_matches = []
-                        
-                        for word_info in all_words:
-                            score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
-                            print(f"  Testing '{word_info['text']}' vs '{target_text}': score {score:.2f} (threshold: {fuzzy_threshold:.2f})")
-                            if score >= fuzzy_threshold:
-                                word_info['fuzzy_score'] = score
-                                fuzzy_matches.append(word_info)
-                                print(f"  ✓ Fuzzy match: '{word_info['text']}' (score: {score:.2f})")
-                        
-                        if fuzzy_matches:
-                            # Sort by score (best first) and use fuzzy matches
-                            fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
-                            text_matches = fuzzy_matches
-                            print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                        if len(target_words) > 1:
+                            # Multi-word target: retry phrase matching with relaxed gap (2x)
+                            print(f"Retrying phrase match with relaxed adjacency gap for '{target_text}'...")
+                            relaxed_gap = settings.get("user.phrase_adjacency_gap", 80) * 2
+                            phrase_matches = find_phrase_sequences(
+                                target_text, contents.result.lines, fuzzy_threshold * 0.9,
+                                max_gap=relaxed_gap
+                            )
+                            if phrase_matches:
+                                phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                                text_matches = phrase_matches
+                                print(f"Found {len(text_matches)} relaxed phrase matches for '{target_text}'")
+                            else:
+                                print(f"No matches found for multi-word target '{target_text}' even with relaxed gap")
                         else:
-                            print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
+                            # Single word: existing fuzzy matching behavior
+                            print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                            fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                            fuzzy_matches = []
+
+                            for word_info in all_words:
+                                score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                                print(f"  Testing '{word_info['text']}' vs '{target_text}': score {score:.2f} (threshold: {fuzzy_threshold:.2f})")
+                                if score >= fuzzy_threshold:
+                                    word_info['fuzzy_score'] = score
+                                    fuzzy_matches.append(word_info)
+                                    print(f"  ✓ Fuzzy match: '{word_info['text']}' (score: {score:.2f})")
+
+                            if fuzzy_matches:
+                                # Sort by score (best first) and use fuzzy matches
+                                fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                                text_matches = fuzzy_matches
+                                print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {text_matches[0]['fuzzy_score']:.2f})")
+                            else:
+                                print(f"No fuzzy matches found for '{target_text}' above threshold {fuzzy_threshold:.2f}")
 
                 # Filter out results in the HUD log region
                 if text_matches:
@@ -407,7 +425,7 @@ class OCRTextDetectionActions:
 
                 if text_matches:
                     global current_target_width
-                    
+
                     if len(text_matches) == 1:
                         # Single match - use it
                         match = text_matches[0]
@@ -638,24 +656,38 @@ class OCRTextDetectionActions:
                     if text_matches:
                         print(f"Found {len(text_matches)} exact word matches for '{target_text}'")
                     elif settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
-                        # Try fuzzy matching as fallback
-                        print(f"No exact matches for '{target_text}', trying fuzzy matching...")
-                        fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
-                        fuzzy_matches = []
-                        
-                        for word_info in all_words:
-                            score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
-                            if score >= fuzzy_threshold:
-                                word_info['fuzzy_score'] = score
-                                fuzzy_matches.append(word_info)
-                        
-                        if fuzzy_matches:
-                            # Sort by score (best first) and use fuzzy matches
-                            fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
-                            text_matches = fuzzy_matches
-                            # Log the best score before any re-sorting
-                            best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
-                            print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {best_score:.2f})")
+                        if len(target_words) > 1:
+                            # Multi-word target: retry phrase matching with relaxed gap (2x)
+                            print(f"Retrying phrase match with relaxed adjacency gap for '{target_text}'...")
+                            relaxed_gap = settings.get("user.phrase_adjacency_gap", 80) * 2
+                            phrase_matches = find_phrase_sequences(
+                                target_text, contents.result.lines, fuzzy_threshold * 0.9,
+                                max_gap=relaxed_gap
+                            )
+                            if phrase_matches:
+                                phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                                text_matches = phrase_matches
+                                print(f"Found {len(text_matches)} relaxed phrase matches for '{target_text}'")
+                            else:
+                                print(f"No matches found for multi-word target '{target_text}' even with relaxed gap")
+                        else:
+                            # Single word: existing fuzzy matching behavior
+                            print(f"No exact matches for '{target_text}', trying fuzzy matching...")
+                            fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
+                            fuzzy_matches = []
+
+                            for word_info in all_words:
+                                score = score_word_fuzzy(word_info['text'], target_text, fuzzy_threshold)
+                                if score >= fuzzy_threshold:
+                                    word_info['fuzzy_score'] = score
+                                    fuzzy_matches.append(word_info)
+
+                            if fuzzy_matches:
+                                # Sort by score (best first) and use fuzzy matches
+                                fuzzy_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
+                                text_matches = fuzzy_matches
+                                best_score = text_matches[0]['fuzzy_score'] if text_matches else 0
+                                print(f"Found {len(text_matches)} fuzzy word matches for '{target_text}' (best score: {best_score:.2f})")
 
                 # Filter out results in the HUD log region
                 if text_matches:
