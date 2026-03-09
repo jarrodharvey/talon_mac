@@ -119,103 +119,126 @@ def begin_generator(generator):
         pass
 
 def find_currently_selected_word(cursor_pos):
-    """Find the currently selected word by looking for text to the RIGHT of cursor position"""
+    """Find the currently selected word/phrase by looking for text near cursor position.
+
+    After finding the closest word, checks for adjacent words on the same OCR line
+    to build a complete phrase (e.g. 'Defense Curl' instead of just 'Curl').
+    """
     try:
         # Get OCR data using same method as get_text_coordinates
         import sys
         gaze_ocr_controller = None
-        
+
         # Find the OCR controller
         for module_name, module in sys.modules.items():
             if 'gaze_ocr' in module_name and hasattr(module, 'gaze_ocr_controller'):
                 gaze_ocr_controller = module.gaze_ocr_controller
                 break
-        
+
         if not gaze_ocr_controller:
             print("ERROR: Could not find gaze_ocr_controller for selected word detection")
             return None
-            
+
         # Get the latest OCR scan (should already be available from recent navigation)
         contents = gaze_ocr_controller.latest_screen_contents()
         if not contents or not contents.result or not contents.result.lines:
             print("No OCR data available for selected word detection")
             return None
-            
+
         cursor_x, cursor_y = cursor_pos
         candidates = []
-        
+
         # Get proximity settings
-        proximity_x = settings.get("user.highlight_proximity_x", 70)  # Default to 70px if not set
-        proximity_y = settings.get("user.highlight_proximity_y", 50)  # Default to 50px if not set
-        
-        # Search all words for candidates to the RIGHT of cursor
+        proximity_x = settings.get("user.highlight_proximity_x", 70)
+        proximity_y = settings.get("user.highlight_proximity_y", 50)
+        max_gap = settings.get("user.phrase_adjacency_gap", 80)
+
+        # Search all words for candidates near cursor
         for line_idx, line in enumerate(contents.result.lines):
             for word_idx, word in enumerate(line.words):
-                # Calculate word coordinates: LEFT EDGE for selected word (not center!)
                 word_left_x = word.left
                 word_center_y = word.top + word.height // 2
-                
-                # Word must be to the RIGHT of cursor OR cursor is positioned within/near the word
-                # Allow words that start up to proximity_x pixels to the left of cursor (cursor positioned within word)
+
+                # Word must be within proximity range of cursor
                 if word_left_x > cursor_x - proximity_x:
-                    # And within reasonable vertical proximity (using configured setting)
                     vertical_distance = abs(word_center_y - cursor_y)
                     if vertical_distance <= proximity_y:
-                        # Filter out likely OCR fragments (single characters, short words)
                         is_likely_fragment = len(word.text.strip()) <= 1
-                        
-                        # Calculate distance, prioritizing words to the RIGHT of cursor
-                        if word_left_x >= cursor_x:
-                            # Word is to the right of cursor - use actual distance
-                            distance_from_cursor = word_left_x - cursor_x
-                        else:
-                            # Word starts to the left but within proximity - use small penalty
-                            distance_from_cursor = cursor_x - word_left_x + 1000  # Add penalty for leftward words
-                        
+
+                        # Calculate distance — use absolute distance for all words
+                        distance_from_cursor = abs(word_left_x - cursor_x)
+
                         candidates.append({
                             'text': word.text,
-                            'coords': (word_left_x, word_center_y),  # LEFT EDGE, not center
-                            'distance_from_cursor': distance_from_cursor,  # Prioritize rightward words
+                            'coords': (word_left_x, word_center_y),
+                            'distance_from_cursor': distance_from_cursor,
                             'vertical_distance': vertical_distance,
                             'is_above_cursor': word_center_y < cursor_y,
                             'is_likely_fragment': is_likely_fragment,
                             'word_length': len(word.text.strip()),
-                            'is_right_of_cursor': word_left_x >= cursor_x
+                            'is_right_of_cursor': word_left_x >= cursor_x,
+                            'line_idx': line_idx,
+                            'word_idx': word_idx
                         })
-        
+
         if not candidates:
-            print(f"No words found to the right of cursor at {cursor_pos}")
+            print(f"No words found near cursor at {cursor_pos}")
             return None
-        
-        # Advanced selection logic prioritizing proper menu items
+
+        # Selection logic prioritizing proper menu items
         # 1. Filter out obvious fragments if we have better options
         non_fragments = [c for c in candidates if not c['is_likely_fragment']]
         if non_fragments:
             candidates = non_fragments
             print(f"Filtered out {len([c for c in candidates if c['is_likely_fragment']])} single-character candidates")
-        
-        # 2. Filter out words that are too far horizontally (likely from different menu sections)
-        horizontal_threshold = 150  # Maximum horizontal distance in pixels
-        nearby_candidates = [c for c in candidates if c['distance_from_cursor'] <= horizontal_threshold]
-        if nearby_candidates:
-            candidates = nearby_candidates
-            filtered_count = len([c for c in candidates if c['distance_from_cursor'] > horizontal_threshold])
-            print(f"Filtered out {filtered_count} candidates beyond {horizontal_threshold}px horizontal distance")
-        
-        # 3. Prioritize words ABOVE cursor (typical menu item position)
+
+        # 2. Prioritize words ABOVE cursor (typical menu item position)
         words_above = [c for c in candidates if c['is_above_cursor']]
         if words_above:
             candidates = words_above
             print(f"Prioritizing {len(words_above)} words above cursor position")
-        
-        # 4. Sort by horizontal proximity only - closest word to cursor
+
+        # 3. Sort by absolute proximity - closest word to cursor
         selected_word = min(candidates, key=lambda w: w['distance_from_cursor'])
-        
-        # Debug logging to show selection process
+
+        # 4. Expand to full phrase: collect adjacent words on the same OCR line
+        selected_line_idx = selected_word['line_idx']
+        selected_word_idx = selected_word['word_idx']
+        line = contents.result.lines[selected_line_idx]
+
+        # Expand left from selected word
+        phrase_start_idx = selected_word_idx
+        for i in range(selected_word_idx - 1, -1, -1):
+            gap = line.words[i + 1].left - (line.words[i].left + line.words[i].width)
+            if gap > max_gap:
+                break
+            phrase_start_idx = i
+
+        # Expand right from selected word
+        phrase_end_idx = selected_word_idx
+        for i in range(selected_word_idx, len(line.words) - 1):
+            gap = line.words[i + 1].left - (line.words[i].left + line.words[i].width)
+            if gap > max_gap:
+                break
+            phrase_end_idx = i + 1
+
+        # Build the phrase from adjacent words
+        phrase_words = line.words[phrase_start_idx:phrase_end_idx + 1]
+        first_word = phrase_words[0]
+        phrase_text = ' '.join(w.text for w in phrase_words)
+        phrase_coords = (first_word.left, first_word.top + first_word.height // 2)
+
+        result = {
+            'text': phrase_text,
+            'coords': phrase_coords,
+            'distance_from_cursor': selected_word['distance_from_cursor'],
+            'is_right_of_cursor': first_word.left >= cursor_x,
+        }
+
+        # Debug logging
         print(f"=== SELECTED WORD DETECTION RESULTS ===")
         print(f"Cursor position: {cursor_pos}")
-        
-        # Show which cursor file was used for detection
+
         try:
             from ..ocr.template_matching import last_successful_cursor_file
             if last_successful_cursor_file:
@@ -224,20 +247,23 @@ def find_currently_selected_word(cursor_pos):
                 print("Cursor filename: None (no successful cursor detected)")
         except Exception as e:
             print(f"Cursor filename: Error accessing ({e})")
-        
+
         print(f"Final candidates after filtering:")
         for i, candidate in enumerate(sorted(candidates, key=lambda w: w['distance_from_cursor'])):
-            marker = "← SELECTED" if candidate == selected_word else ""
+            marker = "← CLOSEST" if candidate == selected_word else ""
             right_marker = "→" if candidate.get('is_right_of_cursor', False) else "←"
             print(f"  {i+1}. '{candidate['text']}' at {candidate['coords']} "
                   f"(horiz_dist: {candidate['distance_from_cursor']:.1f}, "
                   f"vert_dist: {candidate['vertical_distance']:.1f}, "
                   f"above: {candidate['is_above_cursor']}, "
                   f"direction: {right_marker}) {marker}")
-        print(f"SELECTED: '{selected_word['text']}' at {selected_word['coords']}")
-        
-        return selected_word
-        
+        if len(phrase_words) > 1:
+            print(f"EXPANDED to phrase: '{phrase_text}' at {phrase_coords} (from {len(phrase_words)} adjacent words)")
+        else:
+            print(f"SELECTED: '{result['text']}' at {result['coords']}")
+
+        return result
+
     except Exception as e:
         print(f"Error in find_currently_selected_word: {e}")
         return None
@@ -262,26 +288,30 @@ class CoreNavigationActions:
         try:
             # Get current coordinates - use pre-resolved coordinates if provided
             if target_coords:
-                # Mouse-following mode: continuously track mouse position with hysteresis
-                from talon import ctrl
-                current_mouse_pos = ctrl.mouse_pos()
+                if settings.get("user.mouse_following_navigation"):
+                    # Mouse-following mode: continuously track mouse position with hysteresis
+                    from talon import ctrl
+                    current_mouse_pos = ctrl.mouse_pos()
 
-                # Calculate distance from original target
-                distance_moved = actions.user.calculate_distance(target_coords, current_mouse_pos)
+                    # Calculate distance from original target
+                    distance_moved = actions.user.calculate_distance(target_coords, current_mouse_pos)
 
-                # Only update target if mouse moved significantly (prevents jitter)
-                if distance_moved > 30:
-                    print(f"Mouse moved {distance_moved:.1f}px, updating target: {target_coords} -> {current_mouse_pos}")
-                    text_coords = current_mouse_pos
+                    # Only update target if mouse moved significantly (prevents jitter)
+                    if distance_moved > 30:
+                        print(f"Mouse moved {distance_moved:.1f}px, updating target: {target_coords} -> {current_mouse_pos}")
+                        text_coords = current_mouse_pos
+                    else:
+                        text_coords = target_coords
+
+                    # Override navigation mode to unified for mouse-following (grid allows all directions)
+                    navigation_mode = "unified"
+                    print(f"Mouse-following mode: overriding navigation mode to 'unified'")
                 else:
+                    # Pre-resolved coordinates mode: use fixed target position
                     text_coords = target_coords
 
                 # Show/update target crosshair
                 actions.user.show_target_crosshair(text_coords)
-
-                # Override navigation mode to unified for mouse-following (grid allows all directions)
-                navigation_mode = "unified"
-                print(f"Mouse-following mode: overriding navigation mode to 'unified'")
             else:
                 text_coords = actions.user.get_text_coordinates(target_text)
                 if not text_coords:
@@ -316,7 +346,7 @@ class CoreNavigationActions:
             # NEW: Find currently selected word for direction calculation
             selected_word = find_currently_selected_word(highlight_center)
             navigation_source = highlight_center  # Default fallback to cursor position
-            
+
             if selected_word:
                 # Use selected word coordinates for direction calculation
                 navigation_source = selected_word['coords']
@@ -328,19 +358,19 @@ class CoreNavigationActions:
                 print(f"=== CURSOR-BASED NAVIGATION (fallback) ===")
                 print(f"Cursor coords: {highlight_center}")
                 print(f"Target '{target_text}' coords: {text_coords}")
-            
+
             # Calculate direction using selected word (or cursor fallback) → target
             x_diff = text_coords[0] - navigation_source[0]
             y_diff = text_coords[1] - navigation_source[1]
-            
+
             # But use cursor position for proximity detection (arrival check)
             cursor_x_diff = text_coords[0] - highlight_center[0]
             cursor_y_diff = text_coords[1] - highlight_center[1]
-            
+
             # Get configurable proximity settings
             proximity_x = settings.get("user.highlight_proximity_x")
             proximity_y = settings.get("user.highlight_proximity_y")
-            
+
             # Proximity thresholds no longer need adjustment for disambiguation (coordinate bug fixed)
             if target_coords:
                 print(f"Using standard proximity for disambiguation: {proximity_x}x{proximity_y}px")

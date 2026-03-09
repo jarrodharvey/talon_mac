@@ -136,6 +136,13 @@ mod.setting(
     desc="Maximum pixel gap between words to consider them adjacent for phrase matching (increase for games with wide font spacing)"
 )
 
+mod.setting(
+    "mouse_following_navigation",
+    type=bool,
+    default=False,
+    desc="When target_coords are pre-resolved, continuously update target to follow mouse/gaze position"
+)
+
 @mod.action_class
 class Actions:
     def set_pathfinding_global_variable(var_name: str, value: int):
