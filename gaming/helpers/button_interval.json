@@ -1,6 +1,6 @@
 {
-    "button": "z",
-    "interval": 2,
+    "button": "x",
+    "interval": 0.5,
     "action_type": "key",
     "key_hold": 70
 }

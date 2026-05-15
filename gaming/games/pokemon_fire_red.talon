@@ -26,7 +26,9 @@ tag(): user.cardinal_directions
 # Select: shift
 # D-pad: arrow keys
 
-parrot(click): key("x")
+parrot(click): 
+    user.game_stop()
+    key("x")
 parrot(tch): key("z")
 
 ^dialogue$: user.set_repeat_button("z", 3)
@@ -42,10 +44,10 @@ key(`):
 ^tiptoe$: user.set_global_variable("repeat_button_speed", 800)
 
 bang: key("x")
-dub: 
+dub|double: 
     user.game_stop()
     user.betterinput_with_sleep("x:2", "1000ms")
-^trip$: 
+trip: 
     user.game_stop()
     user.betterinput_with_sleep("x:3", "1000ms")
 
@@ -62,6 +64,14 @@ dub:
     user.game_stop()
     user.betterinput_with_sleep("right | x", "500ms")
 
+^rubble$: 
+    user.game_stop()
+    user.betterinput_with_sleep("right | x | x", "500ms")
+
+^lang$: 
+    user.game_stop()
+    user.betterinput_with_sleep("left | x", "500ms")
+
 ^menu$: 
     user.game_stop()
     key("enter")
@@ -76,4 +86,27 @@ dub:
 
 ^actions <number>$: user.set_pathfinding_global_variable("default_action_button_count", number)
 
-^map$: key("backspace")
+^cycle$: key("backspace")
+
+^(detail | description | catch)$: key("a")
+
+^capture$: user.set_repeat_button("a", 1)
+
+^next$: 
+    key("x")
+    user.conditional_image_button_press("z", "file_red_yes_no.png", 1000, false)
+
+^door$: 
+    user.game_stop()
+    key("x")
+    key("up:down")
+
+^pokemon$: 
+    user.game_stop()
+    key("s")
+
+^item$: 
+    user.game_stop()
+    key("x")
+    sleep(4s)
+    key("x")
