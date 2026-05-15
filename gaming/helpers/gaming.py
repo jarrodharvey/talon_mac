@@ -241,6 +241,7 @@ class Actions:
         conditional_image_delay_job = None
         actions.user.betterinput_cron_cancel()
         actions.user.stop_continuous_navigation()
+        actions.user.rmb_compass_stop()
     def get_value_from_json_file(file_path: str, key: str, default: Any = _JSON_MISSING) -> Any:
         """Get the value of a key from a JSON file, supporting optional defaults"""
         with open(file_path) as json_file:

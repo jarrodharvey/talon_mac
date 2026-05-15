@@ -8,7 +8,7 @@ settings():
     user.default_action_button_interval = 1
 
 tag(): user.user_arrows
-tag(): user.cardinal_directions
+tag(): user.rmb_compass_directions
 
 parrot(click):
     user.game_stop()
