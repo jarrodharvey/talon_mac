@@ -28,6 +28,17 @@ betterinput_cron_jobs = []
 
 _JSON_MISSING = object()
 
+_BUTTON_PAIR_TO_COMPASS = {
+    ("up", "up"): "north",
+    ("down", "down"): "south",
+    ("left", "left"): "west",
+    ("right", "right"): "east",
+    ("up", "right"): "northeast", ("right", "up"): "northeast",
+    ("down", "right"): "southeast", ("right", "down"): "southeast",
+    ("up", "left"): "northwest", ("left", "up"): "northwest",
+    ("down", "left"): "southwest", ("left", "down"): "southwest",
+}
+
 images_to_click_location = "/Users/jarrod/.talon/user/jarrod/gaming/images_to_click/"
 
 ctx = Context()
@@ -51,6 +62,7 @@ mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_rmb_compass", "8bitdo selite controller mapped to RMB compass movement (Wasteland 3 style)")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
 mod.tag("pathfinding_cubes", "Tag for games that support cubes pathfinding navigation")
 mod.tag("panning", "Tag for panning the camera in RTS style games")
@@ -279,20 +291,43 @@ class Actions:
         """Walk in a direction"""
         actions.key(f"{arrow_dir}")
         time.sleep(0.3)
-    def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False, stop_self: bool = True):
-        """Travel diagonally in a game"""
-        print(f"DIAGONAL START: {dir1}, {dir2}, held_time={held_time}, hold={hold}, stop_self={stop_self}")
+    def diagonal(dir1: str, dir2: str, held_time: float = 0, hold: str = False, stop_self: bool = True, rmb: bool = False):
+        """Travel diagonally in a game. If rmb=True, drive RMB compass movement instead of keys."""
+        print(f"DIAGONAL START: {dir1}, {dir2}, held_time={held_time}, hold={hold}, stop_self={stop_self}, rmb={rmb}")
         if stop_self:
             # Check if gamepad movement was active before calling game_stop
             gamepad_was_active = button_presser_job is not None
             print(f"DIAGONAL: gamepad_was_active={gamepad_was_active}")
             actions.user.game_stop()
-            
+
             # Only add delay when transitioning FROM gamepad movement
             if gamepad_was_active:
                 time.sleep(0.15)  # 150ms buffer for gamepad→voice transition (was 50ms)
                 print("Gamepad→voice transition: added 150ms stabilization delay")
         hold = str_to_bool(hold)
+        if rmb:
+            direction = _BUTTON_PAIR_TO_COMPASS.get((dir1, dir2))
+            if direction is None:
+                print(f"DIAGONAL: no compass mapping for ({dir1}, {dir2}); skipping rmb tick")
+                return
+            # rmb_compass_move handles cursor placement, RMB:down, sleep, RMB:up
+            # using the same held_time * 0.1 * travel_distance formula as keys mode.
+            # clear_other=False: repeat_diagonal_with_cron already called game_stop()
+            # before setting up this cron; calling it again from inside a tick would
+            # cancel button_presser_job and stop the cron.
+            # Camera-follow: hand dir1/dir2 to rmb_compass_move as camera_keys so
+            # it can hold them for user.rmb_camera_follow_ratio of the RMB burst
+            # (needed in Wasteland 3 because the camera doesn't track short RMB
+            # bursts on its own). dir1/dir2 are already arrow-key names per
+            # _BUTTON_PAIR_TO_COMPASS; dedupe cardinals.
+            camera_keys = [dir1] if dir1 == dir2 else [dir1, dir2]
+            print(f"DIAGONAL: rmb pulse to {direction} for {held_time} units (camera keys: {camera_keys})")
+            actions.user.rmb_compass_move(direction, held_time, False, camera_keys)
+            if hold == False and stop_self:
+                print("DIAGONAL: calling game_stop() because hold=False and stop_self=True")
+                actions.user.game_stop()
+            print("DIAGONAL END")
+            return
         # The higher the hold_time_modifier, the faster the diagonal movement
         hold_time_modifier = 0.1 * settings.get("user.travel_distance")
         print(f"DIAGONAL: pressing {dir1}:down and {dir2}:down")
@@ -596,11 +631,12 @@ class Actions:
         global button_presser_job, repeat_button_speed
         actions.user.game_stop()
         button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.key(button))
-    def repeat_diagonal_with_cron(button1: str, button2: str):
-        """Repeats two button presses simultaneously with a cron job"""
+    def repeat_diagonal_with_cron(button1: str, button2: str, rmb: bool = False):
+        """Repeats two button presses simultaneously with a cron job.
+        If rmb=True, each tick drives RMB compass movement instead of keys."""
         global button_presser_job, repeat_button_speed
         actions.user.game_stop()
-        button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.user.diagonal(button1, button2, 1, "False", False))
+        button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.user.diagonal(button1, button2, 1, "False", False, rmb))
     def stop_and_press_key(key: str):
         """Stops all actions and presses a key"""
         actions.user.game_stop()

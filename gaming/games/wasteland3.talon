@@ -6,17 +6,29 @@ app: moonlight
 settings():
     user.game_action_button = "enter"
     user.default_action_button_interval = 1
+    user.travel_distance = 4
+    user.rmb_camera_follow_ratio = 0.5
 
-tag(): user.user_arrows
 tag(): user.rmb_compass_directions
+tag(): user.8bitdo_rmb_compass
+tag(): user.user_arrows
+
+^<user.arrow_keys> [<number>]$: user.diagonal(arrow_keys, arrow_keys, 1 or number, "False") 
 
 parrot(click):
     user.game_stop()
-    key("enter")
+    mouse_click(1)
 
 parrot(tch):
     user.game_stop()
     key("escape")
+
+^bang$: key("return")
+
+^move$: mouse_click(1)
+
+face(brow_outer_up_left:start): key("shift:down")
+face(brow_outer_up_left:stop): key("shift:up")
 
 ^scroll [{user.number_small}]$:
     repeat_times = user.simple_math("{number_small or 1} * 80")
@@ -42,59 +54,40 @@ parrot(tch):
     key("fn-delete:down")
     sleep(500ms)
     key("fn-delete:up")
-^rotate [right]$: key("q")
-^rotate left$: key("e")
-^reset camera$: key("backspace")
 
 # End turn / group mode
 ^turn$: key("space")
-
-# Character selection
-^next$: key("tab")
-^previous$: key("`")
-^character one$: key("keypad_1")
-^character two$: key("keypad_2")
-^character three$: key("keypad_3")
-^character four$: key("keypad_4")
-^character five$: key("keypad_5")
-^character six$: key("keypad_6")
-
-# Character screens
-^attributes$: key("c")
-^inventory$: key("j")
-^skills$: key("k")
-^perks$: key("p")
-^reputation$: key("l")
-^map$: key("m")
-
-# Combat actions
-^attack$: key("ctrl")
-^switch [weapon]$: key("x")
-^reload$: key("r")
-^precision [strike]$: key("f")
-^ambush$: key("v")
-^defend$: key("b")
-^prepare$: key("n")
-^crouch$: key("z")
-
-# Misc
-^grid$: key("g")
-^radio$: key("/")
-^horn$: key("h")
-^highlight$: key("shift")
 
 # Save / load
 ^quick save$: key("f5")
 ^quick load$: key("f9")
 
 # Dialogue advancement
-^dialogue$: user.set_repeat_button("enter", 5)
-^mash$: user.set_repeat_button("enter", 0.5)
+^dialogue$: user.set_repeat_button("click", 5)
 
-# OCR menu navigation (requires cursor templates in gaming/cursors/wasteland3/)
-^go <user.prose>$: user.navigate_to_word(prose)
+# Images
+^loot$: 
+    user.click_image("wasteland_loot.png") 
+    user.set_repeat_button("click", 3)
 
-# Debug
-^debug text$: user.debug_all_text_coordinates()
-^debug cursor$: user.debug_cursor_position()
-^debug path$: user.debug_pathfinding_state()
+# Back
+^dack$: user.betterinput_with_sleep("esc:2", "500ms")
+^track$: user.betterinput_with_sleep("esc:3", "500ms")
+^quack$: user.betterinput_with_sleep("esc:4", "500ms")
+
+# Battle menu
+^attack$: key(1)
+^reload$: key(2)
+^stand$: key(3)
+^ability$: key(4)
+^item$: key(5)
+
+# Battle final actions
+^ambush$: key("v")
+^defend$: key("b")
+^prepare$: key("n")
+
+# Field
+^inventory$: key("i")
+
+^switch$: key("tab")
