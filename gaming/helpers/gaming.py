@@ -146,6 +146,13 @@ mod.setting(
     desc="Delay between grid key presses (milliseconds)"
 )
 
+mod.setting(
+    "gamepad_east_single_key",
+    type=str,
+    default="",
+    desc="If set, gamepad east does a single tap of this key instead of the default repeat-press logic. Per-game override via settings(): block."
+)
+
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -499,6 +506,10 @@ class Actions:
         if scope.get("user.hiss_dpad_active") == "yes":
             actions.key("right:down")
         else:
+            single_key = settings.get("user.gamepad_east_single_key")
+            if single_key:
+                actions.key(single_key)
+                return
             config_path = "/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json"
             button_to_press = actions.user.get_value_from_json_file(config_path, "button")
             interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
