@@ -158,13 +158,6 @@ mod.setting(
     desc="Delay between grid key presses (milliseconds)"
 )
 
-mod.setting(
-    "gamepad_east_single_key",
-    type=str,
-    default="",
-    desc="If set, gamepad east does a single tap of this key instead of the default repeat-press logic. Per-game override via settings(): block."
-)
-
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -208,7 +201,19 @@ class Actions:
         }
         with open(file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
-        print(f"Updated {file_path} with image: {image_name} every {interval} seconds") 
+        print(f"Updated {file_path} with image: {image_name} every {interval} seconds")
+    def set_single_press_button(button: str):
+        """Populate button_interval.json so gamepad east taps this key once per press (no repeat)"""
+        file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
+        data = {
+            "button": button,
+            "interval": 0,
+            "action_type": "single_press",
+            "key_hold": 0,
+        }
+        with open(file_path, 'w') as json_file:
+            json.dump(data, json_file, indent=4)
+        print(f"Updated {file_path} for single-press of {button}")
     def game_stop():
         """Stop gaming mode actions"""
         global button_presser_job
@@ -541,16 +546,17 @@ class Actions:
         if scope.get("user.hiss_dpad_active") == "yes":
             actions.key("right:down")
         else:
-            single_key = settings.get("user.gamepad_east_single_key")
-            if single_key:
-                actions.key(single_key)
-                return
             config_path = "/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json"
             button_to_press = actions.user.get_value_from_json_file(config_path, "button")
             interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
             action_type = actions.user.get_value_from_json_file(config_path, "action_type", default="key")
 
             key_hold = actions.user.get_value_from_json_file(config_path, "key_hold", default=0)
+
+            if action_type == "single_press":
+                actions.key(button_to_press)
+                actions.user.hud_publish_content(f"Tapped {button_to_press}", "example", "Pressing button")
+                return
 
             if action_type == "image":
                 actions.user.start_image_click(button_to_press, interval_in_seconds)

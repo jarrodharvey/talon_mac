@@ -3,11 +3,10 @@ mode: user.game
 app: moonlight
 -
 
-settings():
-    user.gamepad_east_single_key = "c"
-
 parrot(click): key("enter")
 parrot(tch): key("esc")
+
+^dialogue$: user.set_single_press_button("c")
 
 ^menu$: key("tab")
 ^whale$: key("w")
