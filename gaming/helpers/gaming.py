@@ -96,10 +96,10 @@ mod.setting(
 )
 
 mod.setting(
-    "centre_camera_button",
+    "centre_camera_method",
     type=str,
-    default="w",
-    desc="The centre camera in a video game"
+    default="c",
+    desc="How to centre the camera in a 3D game. Either a single key (e.g. 'c', 'space') or a special value: 'double_rmb', 'rmb', 'lmb'."
 )
 
 mod.setting(
@@ -823,10 +823,22 @@ class Actions:
         mouse_movement_speed = settings.get("user.mouse_movement_speed")
         mouse_movement_distance = settings.get("user.mouse_movement_distance")
         mouse_mover_job = cron.interval(f"{mouse_movement_speed}ms", lambda: actions.user.move_mouse_relative(direction))
+    def centre_camera():
+        """Centre the camera behind the player. Configured via user.centre_camera_method."""
+        method = settings.get("user.centre_camera_method")
+        if method == "double_rmb":
+            ctrl.mouse_click(button=1)
+            time.sleep(0.05)
+            ctrl.mouse_click(button=1)
+        elif method == "rmb":
+            ctrl.mouse_click(button=1)
+        elif method == "lmb":
+            ctrl.mouse_click(button=0)
+        else:
+            actions.key(method)
     def diagonal_3d(dir1: str, dir2: str):
         """Travel diagonally in a 3d game"""
         actions.user.game_stop()
-        centre_camera_button = settings.get("user.centre_camera_button")
         forward_button = settings.get("user.forward_button")
         current_game = storage.get("user.manual_game")
         time.sleep(0.2)
@@ -836,7 +848,7 @@ class Actions:
         actions.key(f"{dir1}:up")
         actions.key(f"{dir2}:up")
         time.sleep(0.2)
-        actions.key("c")
+        actions.user.centre_camera()
         time.sleep(0.2)
         if looking_around == "no":
             actions.key(f"{forward_button}:down")

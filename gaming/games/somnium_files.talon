@@ -3,10 +3,19 @@ mode: user.game
 app: moonlight
 -
 
+tag(): user.wasd_directions_3d
+tag(): user.8bitdo_3d_movement
+
+settings():
+    user.centre_camera_method = "double_rmb"
+
 parrot(click): key("enter")
 parrot(tch): key("esc")
 
+^stop$: user.game_stop()
+
 ^dialogue$: user.set_single_press_button("c")
+^tutorial$: user.set_repeat_button("enter", 3)
 
 ^menu$: key("tab")
 ^whale$: key("w")
@@ -19,3 +28,5 @@ parrot(tch): key("esc")
     key("{arrow_keys}:down")
     sleep(1)
     key("{arrow_keys}:up")
+
+^(zoom | ray)$: key("q")
