@@ -1,6 +1,6 @@
 {
-    "button": "x",
-    "interval": 0.5,
-    "action_type": "key",
-    "key_hold": 70
+    "button": "c",
+    "interval": 0,
+    "action_type": "single_press",
+    "key_hold": 0
 }

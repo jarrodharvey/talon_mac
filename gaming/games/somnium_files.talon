@@ -3,11 +3,13 @@ mode: user.game
 app: moonlight
 -
 
-tag(): user.wasd_directions_3d
-tag(): user.8bitdo_3d_movement
-
 settings():
+    key_hold = 200
     user.centre_camera_method = "double_rmb"
+    user.travel_distance = 2    
+
+tag(): user.8bitdo_3d_staggered
+tag(): user.wasd_directions_3d
 
 parrot(click): key("enter")
 parrot(tch): key("esc")
@@ -30,3 +32,9 @@ parrot(tch): key("esc")
     key("{arrow_keys}:up")
 
 ^(zoom | ray)$: key("q")
+
+# The lower the number the faster the speed of the staggered movement. Adjust to preference.
+^walk$: user.set_global_variable("repeat_button_speed", 500)
+^jog$: user.set_global_variable("repeat_button_speed", 200)
+^sprint$: user.set_global_variable("repeat_button_speed", 250)
+^tiptoe$: user.set_global_variable("repeat_button_speed", 800)

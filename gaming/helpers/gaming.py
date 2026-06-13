@@ -64,6 +64,7 @@ mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_rmb_compass", "8bitdo selite controller mapped to RMB compass movement (Wasteland 3 style)")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_3d_staggered", "Used for 8bitdo selite controller")
 mod.tag("pathfinding_cubes", "Tag for games that support cubes pathfinding navigation")
 mod.tag("panning", "Tag for panning the camera in RTS style games")
 
@@ -632,11 +633,18 @@ class Actions:
         for key in arrow_keys:
             if key != arrow_key:
                 actions.key(f"{key}:up")
-    def repeat_button_with_cron(button: str):
+    def repeat_button_with_cron(button: str, center_camera: str = "no"):
         """Repeats a button press with a cron job"""
         global button_presser_job, repeat_button_speed
         actions.user.game_stop()
+        if center_camera == "yes":
+            actions.key(f"{button}:down")
+            time.sleep(1)
+            actions.key(f"{button}:up") 
+            actions.user.centre_camera()
+            time.sleep(1)
         button_presser_job = cron.interval(f"{repeat_button_speed}ms", lambda: actions.key(button))
+
     def repeat_diagonal_with_cron(button1: str, button2: str, rmb: bool = False):
         """Repeats two button presses simultaneously with a cron job.
         If rmb=True, each tick drives RMB compass movement instead of keys."""
@@ -836,22 +844,34 @@ class Actions:
             ctrl.mouse_click(button=0)
         else:
             actions.key(method)
-    def diagonal_3d(dir1: str, dir2: str):
-        """Travel diagonally in a 3d game"""
+    def diagonal_3d(dir1: str, dir2: str, stagger: str = "no"):
+        """Travel diagonally in a 3d game.
+
+        Non-blocking: schedules each step via cron.after so the calling handler
+        returns immediately. This avoids blocking Talon's input thread while a
+        controller key is still physically held, which would otherwise cause
+        the held-controller-key and the synthetic key events to conflict at
+        the OS level."""
         actions.user.game_stop()
         forward_button = settings.get("user.forward_button")
-        current_game = storage.get("user.manual_game")
-        time.sleep(0.2)
-        actions.key(f"{dir1}:down")
-        actions.key(f"{dir2}:down")
-        time.sleep(0.2)
-        actions.key(f"{dir1}:up")
-        actions.key(f"{dir2}:up")
-        time.sleep(0.2)
-        actions.user.centre_camera()
-        time.sleep(0.2)
-        if looking_around == "no":
-            actions.key(f"{forward_button}:down")
+        def press_dirs():
+            actions.key(f"{dir1}:down")
+            actions.key(f"{dir2}:down")
+        def release_dirs():
+            actions.key(f"{dir1}:up")
+            actions.key(f"{dir2}:up")
+        def centre():
+            actions.user.centre_camera()
+        def finish():
+            if looking_around == "no":
+                if stagger == "yes":
+                    actions.user.repeat_diagonal_with_cron(forward_button, forward_button)
+                else:
+                    actions.key(f"{forward_button}:down")
+        cron.after("500ms", press_dirs)
+        cron.after("1000ms", release_dirs)
+        cron.after("2000ms", centre)
+        cron.after("3000ms", finish)
     def betterinput_simple(action_str: str):
         """Simple wrapper for betterinput with no bindings or options"""
         actions.user.betterinput(action_str, "", {})
