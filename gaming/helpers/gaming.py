@@ -20,6 +20,7 @@ grinding_job = None
 conditional_image_job = None
 conditional_image_delay_job = None
 image_click_job = None
+held_button = None
 repeat_button_speed = 250
 brow_rotate = "no"
 mouse_mover_job = None
@@ -65,6 +66,7 @@ mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_rmb_compass", "8bitdo selite controller mapped to RMB compass movement (Wasteland 3 style)")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_3d_staggered", "Used for 8bitdo selite controller")
+mod.tag("wasd_directions_3d_staggered", "Used for 8bitdo selite controller")
 mod.tag("pathfinding_cubes", "Tag for games that support cubes pathfinding navigation")
 mod.tag("panning", "Tag for panning the camera in RTS style games")
 
@@ -215,6 +217,18 @@ class Actions:
         with open(file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
         print(f"Updated {file_path} for single-press of {button}")
+    def set_hold_button(button: str):
+        """Populate button_interval.json so gamepad east HOLDS this key down until released"""
+        file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
+        data = {
+            "button": button,
+            "interval": 0,
+            "action_type": "hold",
+            "key_hold": 0,
+        }
+        with open(file_path, 'w') as json_file:
+            json.dump(data, json_file, indent=4)
+        print(f"Updated {file_path} for hold of {button}")
     def game_stop():
         """Stop gaming mode actions"""
         global button_presser_job
@@ -223,6 +237,11 @@ class Actions:
         global conditional_image_job
         global conditional_image_delay_job
         global image_click_job
+        global held_button
+
+        if held_button:
+            actions.key(f"{held_button}:up")
+            held_button = None
 
         actions.key("left:up")
         actions.key("right:up")
@@ -267,6 +286,7 @@ class Actions:
         actions.user.betterinput_cron_cancel()
         actions.user.stop_continuous_navigation()
         actions.user.rmb_compass_stop()
+        actions.user.stop_cursor_scan()
     def get_value_from_json_file(file_path: str, key: str, default: Any = _JSON_MISSING) -> Any:
         """Get the value of a key from a JSON file, supporting optional defaults"""
         with open(file_path) as json_file:
@@ -557,6 +577,13 @@ class Actions:
             if action_type == "single_press":
                 actions.key(button_to_press)
                 actions.user.hud_publish_content(f"Tapped {button_to_press}", "example", "Pressing button")
+                return
+
+            if action_type == "hold":
+                global held_button
+                held_button = button_to_press
+                actions.key(f"{button_to_press}:down")
+                actions.user.hud_publish_content(f"Holding {button_to_press}", "example", "Pressing button")
                 return
 
             if action_type == "image":

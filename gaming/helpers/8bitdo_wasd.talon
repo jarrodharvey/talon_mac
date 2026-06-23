@@ -7,10 +7,10 @@ tag: user.8bitdo_wasd
 
 key(;): user.game_stop()
 
-key(keypad_4): user.repeat_button_with_cron("a")
-key(keypad_6): user.repeat_button_with_cron("d")
-key(keypad_8): user.repeat_button_with_cron("w")
-key(keypad_2): user.repeat_button_with_cron("s")
+key(keypad_4:down): user.repeat_button_with_cron("a")
+key(keypad_6:down): user.repeat_button_with_cron("d")
+key(keypad_8:down): user.repeat_button_with_cron("w")
+key(keypad_2:down): user.repeat_button_with_cron("s")
 
 key(pageup:down): user.stop_and_press_key("w")
 key(pagedown:down): user.stop_and_press_key("s")
