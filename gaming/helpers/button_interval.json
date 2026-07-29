@@ -1,6 +1,6 @@
 {
-    "button": "r",
-    "interval": 0,
-    "action_type": "single_press",
-    "key_hold": 0
+    "button": "backspace",
+    "interval": 5,
+    "action_type": "key",
+    "key_hold": 10
 }

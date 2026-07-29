@@ -62,6 +62,7 @@ mod.tag("ocr_pathfinding_button", "Used for holding down a button that enables p
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd_diagonal", "Used for 8bitdo selite controller")
+mod.tag("8bitdo_wasd_actual_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_diagonal", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_rmb_compass", "8bitdo selite controller mapped to RMB compass movement (Wasteland 3 style)")
 mod.tag("8bitdo_3d_movement", "Used for 8bitdo selite controller")
