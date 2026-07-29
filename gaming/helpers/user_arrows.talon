@@ -117,5 +117,5 @@ wright twice:
 
 spin <user.arrow_keys>: 
     key(arrow_keys)
-    sleep(500ms)z
+    sleep(500ms)
     key(arrow_keys)

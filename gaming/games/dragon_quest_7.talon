@@ -3,10 +3,15 @@ mode: user.game
 app: moonlight
 -
 
+# IMPORTANT NOTE REGARDING MOUSE CLICKS:
+# Mouse click events in this game will not be received by moonlight unless a physical mouse is plugged into the host
+
 settings():
-    key_hold = 200
     user.super_click_duration = 0.8
-    user.travel_distance = 1
+    user.ocr_click_delay = 200
+    user.ocr_click_hold = 800
+    key_hold = 10
+    user.disable_hud_log_exclusion = 1
 
 # Enable arrow key movement commands
 tag(): user.8bitdo_wasd_diagonal

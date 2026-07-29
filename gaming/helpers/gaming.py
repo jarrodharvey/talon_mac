@@ -92,6 +92,13 @@ mod.setting(
 )
 
 mod.setting(
+    "ocr_click_hold",
+    type=int,
+    default=0,
+    desc="Milliseconds to hold the mouse button down during OCR click mode. 0 = instant click. Games that poll input per frame (or run through an emulator) miss instant clicks and need a hold."
+)
+
+mod.setting(
     "forward_button",
     type=str,
     default="w",
@@ -644,11 +651,18 @@ class Actions:
         ctx.tags = current_tags
         print("Disabled OCR navigation mode")
     def ocr_click_with_delay():
-        """Click with configurable delay for OCR click mode"""
+        """Click with configurable delay and hold duration for OCR click mode"""
         delay_ms = settings.get("user.ocr_click_delay")
+        hold_ms = settings.get("user.ocr_click_hold")
         if delay_ms > 0:
             actions.sleep(f"{delay_ms}ms")
-        ctrl.mouse_click(button=0)
+        print(f"OCR click: delay={delay_ms}ms hold={hold_ms}ms at {ctrl.mouse_pos()}")
+        if hold_ms > 0:
+            ctrl.mouse_click(button=0, down=True)
+            time.sleep(hold_ms / 1000)
+            ctrl.mouse_click(button=0, up=True)
+        else:
+            ctrl.mouse_click(button=0)
     def game_click_spot(phrase: str):
         """Clicks a spot on the screen"""
         actions.user.move_to_spot(phrase)
