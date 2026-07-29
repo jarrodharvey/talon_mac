@@ -32,6 +32,7 @@ parrot(tch): key("esc")
 # Mashing buttons for QTEs
 ^mash escape$: user.set_repeat_button("esc", 0.08)
 ^mash tab$: user.set_repeat_button("tab", 0.08)
+^mash space$: user.set_repeat_button("space", 0.08)
 
 ^(menu | present)$: key("tab")
 ^look$: key("space")
