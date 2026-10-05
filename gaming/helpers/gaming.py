@@ -100,6 +100,27 @@ mod.setting(
 )
 
 mod.setting(
+    "ocr_release_advance_image",
+    type=str,
+    default="",
+    desc="Image template that gates dialogue auto-advance after releasing the OCR button (R1). Empty = disabled."
+)
+
+mod.setting(
+    "ocr_release_advance_button",
+    type=str,
+    default="return",
+    desc="Key pressed to advance dialogue while ocr_release_advance_image is on screen"
+)
+
+mod.setting(
+    "ocr_release_advance_interval",
+    type=int,
+    default=5000,
+    desc="Milliseconds between image checks for OCR-release dialogue auto-advance"
+)
+
+mod.setting(
     "forward_button",
     type=str,
     default="w",
@@ -651,6 +672,13 @@ class Actions:
         current_tags = [tag for tag in current_tags if tag not in ["user.ocr_pathfinding_button", "user.ocr_click_button"]]
         ctx.tags = current_tags
         print("Disabled OCR navigation mode")
+
+        advance_image = settings.get("user.ocr_release_advance_image")
+        if advance_image:
+            advance_button = settings.get("user.ocr_release_advance_button")
+            advance_interval = settings.get("user.ocr_release_advance_interval")
+            print(f"OCR release: auto-advancing with {advance_button} while {advance_image} is visible")
+            actions.user.conditional_image_button_press(advance_button, advance_image, advance_interval, True, 0, True, advance_button)
     def ocr_click_with_delay():
         """Click with configurable delay and hold duration for OCR click mode"""
         delay_ms = settings.get("user.ocr_click_delay")
