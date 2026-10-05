@@ -8,13 +8,13 @@ tag: user.8bitdo_wasd_actual_diagonal
 key(;): user.game_stop()
 
 # Keypad for straight line movement
-key(keypad_4): user.repeat_diagonal_with_cron("a", "s")
-key(keypad_6): user.repeat_diagonal_with_cron("w", "d")
-key(keypad_8): user.repeat_diagonal_with_cron("w", "a")
-key(keypad_2): user.repeat_diagonal_with_cron("s", "d")
+key(keypad_4): user.repeat_diagonal_with_cron("w", "a")
+key(keypad_6): user.repeat_diagonal_with_cron("s", "d")
+key(keypad_8): user.repeat_diagonal_with_cron("w", "d")
+key(keypad_2): user.repeat_diagonal_with_cron("a", "s")
 
 # Other keys for diagonal movement
-key(pageup:down): user.stop_and_press_key("w")
-key(pagedown:down): user.stop_and_press_key("s")
-key(home:down): user.stop_and_press_key("a")
-key(end:down): user.stop_and_press_key("d")
+key(pageup:down): user.repeat_diagonal_with_cron("w", "w")
+key(pagedown:down): user.repeat_diagonal_with_cron("s", "s")
+key(home:down): user.repeat_diagonal_with_cron("a", "a")
+key(end:down): user.repeat_diagonal_with_cron("d", "d")

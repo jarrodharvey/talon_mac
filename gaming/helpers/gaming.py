@@ -556,6 +556,14 @@ class Actions:
         actions.key(f"{key}:down")
         time.sleep(duration_ms / 1000)
         actions.key(f"{key}:up")
+    def hold_key_x_times(key: str, times: int, duration_ms: int, interval: float):
+        """Hold a key down for a specified duration, multiple times, with a specified interval"""
+        for i in range(times):
+            actions.key(f"{key}:down")
+            time.sleep(duration_ms / 1000)
+            actions.key(f"{key}:up")
+            if i < times - 1:  # Don't sleep after the last press
+                time.sleep(interval)
     def noise_step(key_to_hold: str, interval: float):
         """Hold a key for a specified interval"""
         actions.user.noise_start(key_to_hold)
@@ -593,6 +601,7 @@ class Actions:
             actions.key("down")
     def gamepad_east_down():
         """Actions taken when the east button on the gamepad is pressed"""
+        print("EAST DOWN: handler fired")
         if scope.get("user.hiss_dpad_active") == "yes":
             actions.key("right:down")
         else:

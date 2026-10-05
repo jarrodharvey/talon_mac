@@ -5,6 +5,7 @@ mod = Module()
 keypress_job = None
 
 def press_key(key_to_press: str, hold_ms: int = 0):
+    print(f"REPEAT KEYPRESS: {key_to_press} (hold {hold_ms}ms)")
     if key_to_press == "click":
         actions.user.super_click()
     elif hold_ms > 0:

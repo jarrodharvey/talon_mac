@@ -1,6 +1,6 @@
 {
-    "button": "backspace",
-    "interval": 5,
+    "button": "return",
+    "interval": 4,
     "action_type": "key",
-    "key_hold": 10
+    "key_hold": 30
 }
