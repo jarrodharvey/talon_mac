@@ -4,6 +4,9 @@ mode: user.game
 app: moonlight
 user.active_manual_game: bg3
 -
+settings():
+    # Bare numbers press hotkeys here, so the OCR overlay needs "choose <n>"
+    user.ocr_disambiguation_require_choose = true
 tag(): user.cardinal_directions
 
 ^face tester$: user.face_tester_toggle()

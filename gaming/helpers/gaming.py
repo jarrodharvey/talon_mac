@@ -58,6 +58,7 @@ mod.tag("wasd_directions", "Cardinal directions")
 mod.tag("wasd_directions_3d", "Cardinal directions")
 mod.tag("boxes_gaming", "Used for boxes in gaming")
 mod.tag("ocr_click_button", "Used for holding down a button that enables clicking on dictated text")
+mod.tag("ocr_disambiguation_require_choose", "OCR disambiguation overlay only accepts 'choose <n>', not a bare number")
 mod.tag("ocr_pathfinding_button", "Used for holding down a button that enables pathfinding navigation to dictated text")
 mod.tag("8bitdo_selite", "Used for 8bitdo selite controller")
 mod.tag("8bitdo_wasd", "Used for 8bitdo selite controller")
@@ -91,6 +92,16 @@ mod.setting(
     default=0,
     desc="Delay in milliseconds between cursor arrival and click when using OCR click mode (R2 held)"
 )
+
+mod.setting(
+    "ocr_disambiguation_require_choose",
+    type=bool,
+    default=False,
+    desc="If true, the OCR disambiguation overlay only accepts 'choose <n>'; a bare number goes to the game's own rules (e.g. number-key hotbars)"
+)
+
+# Separate context so this tag can't clobber the OCR tags kept in ctx.tags
+require_choose_ctx = Context()
 
 mod.setting(
     "ocr_click_hold",
@@ -691,6 +702,8 @@ class Actions:
     def ocr_click_text(text: Any):
         """Move to onscreen text (showing the disambiguation overlay if ambiguous), then OCR-click.
         The click runs inside the gaze-ocr generator, so it waits for 'choose <n>'."""
+        require_choose = settings.get("user.ocr_disambiguation_require_choose")
+        require_choose_ctx.tags = ["user.ocr_disambiguation_require_choose"] if require_choose else []
         actions.user.move_cursor_to_text_and_do(text, actions.user.ocr_click_with_delay)
     def ocr_click_with_delay():
         """Click with configurable delay and hold duration for OCR click mode"""

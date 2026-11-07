@@ -5,6 +5,8 @@ user.boxes_gaming_status: off
 -
 settings():
     key_wait = 40
+    # Bare numbers press hotkeys here, so the OCR overlay needs "choose <n>"
+    user.ocr_disambiguation_require_choose = true
     mouse_wheel_down_amount = 500
 tag(): user.user_arrows
 tag(): user.cardinal_directions
