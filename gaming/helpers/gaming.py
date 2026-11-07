@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl, settings, scope, Context
+from talon import Module, actions, cron, storage, app, ctrl, settings, Context
 import json
 import time
 import os
@@ -613,36 +613,33 @@ class Actions:
     def gamepad_east_down():
         """Actions taken when the east button on the gamepad is pressed"""
         print("EAST DOWN: handler fired")
-        if scope.get("user.hiss_dpad_active") == "yes":
-            actions.key("right:down")
+        config_path = "/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json"
+        button_to_press = actions.user.get_value_from_json_file(config_path, "button")
+        interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
+        action_type = actions.user.get_value_from_json_file(config_path, "action_type", default="key")
+
+        key_hold = actions.user.get_value_from_json_file(config_path, "key_hold", default=0)
+
+        if action_type == "single_press":
+            actions.key(button_to_press)
+            actions.user.hud_publish_content(f"Tapped {button_to_press}", "example", "Pressing button")
+            return
+
+        if action_type == "hold":
+            global held_button
+            held_button = button_to_press
+            actions.key(f"{button_to_press}:down")
+            actions.user.hud_publish_content(f"Holding {button_to_press}", "example", "Pressing button")
+            return
+
+        if action_type == "image":
+            actions.user.start_image_click(button_to_press, interval_in_seconds)
+            hud_message = f'Clicking {button_to_press} every {interval_in_seconds} seconds'
         else:
-            config_path = "/Users/jarrod/.talon/user/jarrod/gaming/helpers/button_interval.json"
-            button_to_press = actions.user.get_value_from_json_file(config_path, "button")
-            interval_in_seconds = actions.user.get_value_from_json_file(config_path, "interval")
-            action_type = actions.user.get_value_from_json_file(config_path, "action_type", default="key")
+            actions.user.start_keypress(button_to_press, interval_in_seconds, int(key_hold))
+            hud_message = f'Pressing {button_to_press} every {interval_in_seconds} seconds'
 
-            key_hold = actions.user.get_value_from_json_file(config_path, "key_hold", default=0)
-
-            if action_type == "single_press":
-                actions.key(button_to_press)
-                actions.user.hud_publish_content(f"Tapped {button_to_press}", "example", "Pressing button")
-                return
-
-            if action_type == "hold":
-                global held_button
-                held_button = button_to_press
-                actions.key(f"{button_to_press}:down")
-                actions.user.hud_publish_content(f"Holding {button_to_press}", "example", "Pressing button")
-                return
-
-            if action_type == "image":
-                actions.user.start_image_click(button_to_press, interval_in_seconds)
-                hud_message = f'Clicking {button_to_press} every {interval_in_seconds} seconds'
-            else:
-                actions.user.start_keypress(button_to_press, interval_in_seconds, int(key_hold))
-                hud_message = f'Pressing {button_to_press} every {interval_in_seconds} seconds'
-
-            actions.user.hud_publish_content(hud_message, 'example', 'Pressing button')
+        actions.user.hud_publish_content(hud_message, 'example', 'Pressing button')
     def daily_exercise_reminder():
         """Reminds me to do daily exercises"""
         date_last_called = storage.get("user.date_last_called")

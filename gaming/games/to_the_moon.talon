@@ -1,6 +1,5 @@
 app: Just a To the Moon Series Beach Episode
 mode: user.game
-#user.hiss_dpad_active: no
 -
 
 settings():

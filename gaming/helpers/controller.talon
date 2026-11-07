@@ -17,6 +17,12 @@ gamepad(south:up):
     # Disable the talon microphone so that it won't pick up on utterances
     #sound.set_microphone("None")
 
+# Reads gaming/helpers/button_interval.json and acts on its action_type:
+#   single_press - tap `button` once
+#   hold         - hold `button` down until east is released
+#   image        - click image template `button` every `interval` seconds
+#   key (default) - press `button` every `interval` seconds, held for `key_hold` ms
+# Releasing east (below) calls game_stop(), which cancels whatever was started.
 gamepad(east:down): user.gamepad_east_down()
 
 gamepad(east:up): user.game_stop()

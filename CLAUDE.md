@@ -96,9 +96,8 @@ This repo IS the `jarrod/` directory. The sibling directories under `~/.talon/us
 4. **BetterInput** (`gaming/helpers/gaming.py`) - Complex time-aware input sequences
 5. **Wink Handler** (`wink_handler.py`) - Facial expression-based controls
 6. **Claude Helpers** (`claude_helpers/`) - Development utilities and testing
-7. **Hiss/DPad** (`gaming/helpers/hiss_dpad/`) - Gaze-aware directional input via hiss noise
-8. **Controlled Vocabularies** (`controlled_vocabularies/`) - Custom talon-list vocabularies (R, zsh)
-9. **Languages** (`languages/`) - Language-specific extensions (e.g., mermaid)
+7. **Controlled Vocabularies** (`controlled_vocabularies/`) - Custom talon-list vocabularies (R, zsh)
+8. **Languages** (`languages/`) - Language-specific extensions (e.g., mermaid)
 
 ### Key Architectural Patterns
 
@@ -284,7 +283,6 @@ echo 'actions.user.debug_pathfinding_state()' | /Users/jarrod/.talon/bin/repl
 - `jarrod/gaming/helpers/pathfinding/core/navigation.py` - Navigation engine
 - `jarrod/gaming/helpers/noise_handler.py` - Noise-based input handling
 - `jarrod/gaming/helpers/repeat_keypress.py` - Keypress repetition system
-- `jarrod/gaming/helpers/hiss_dpad/` - Gaze-aware directional pad input
 - `jarrod/wink_handler.py` - Facial expression system
 
 **Gaming data directories**:
