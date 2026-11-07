@@ -1,5 +1,6 @@
 list: user.vocabulary
 user.active_manual_game: pokemon white
+user.active_manual_game: pokemon gold
 mode: user.game
 app: moonlight
 -
@@ -16,3 +17,5 @@ then: zen
 sin: zen
 vatic: psychic
 will dose: bulldoze
+quicker tuck: quick attack
+work come on: pokemon
