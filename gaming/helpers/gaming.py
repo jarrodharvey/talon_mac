@@ -688,6 +688,10 @@ class Actions:
             advance_interval = settings.get("user.ocr_release_advance_interval")
             print(f"OCR release: auto-advancing with {advance_button} while {advance_image} is visible")
             actions.user.conditional_image_button_press(advance_button, advance_image, advance_interval, True, 0, True, advance_button)
+    def ocr_click_text(text: Any):
+        """Move to onscreen text (showing the disambiguation overlay if ambiguous), then OCR-click.
+        The click runs inside the gaze-ocr generator, so it waits for 'choose <n>'."""
+        actions.user.move_cursor_to_text_and_do(text, actions.user.ocr_click_with_delay)
     def ocr_click_with_delay():
         """Click with configurable delay and hold duration for OCR click mode"""
         delay_ms = settings.get("user.ocr_click_delay")
