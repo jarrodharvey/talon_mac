@@ -831,6 +831,11 @@ class Actions:
         if stop_first:
             actions.user.game_stop()
 
+        condition = "visible" if image_present else "not visible"
+        actions.user.hud_publish_content(
+            f"Pressing {action_button} every {wait_time}ms while {image_name} is {condition}",
+            "example", "Pressing button")
+
         def start_conditional_check():
             global conditional_image_job
             if image_present:
@@ -872,6 +877,7 @@ class Actions:
                 global conditional_image_job
                 cron.cancel(conditional_image_job)
                 conditional_image_job = None
+                actions.user.hud_disable_id('Text panel')
                 if press_final_button:
                     time.sleep(0.5)  # Wait for game to be ready
                     actions.key(press_final_button)
