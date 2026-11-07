@@ -52,8 +52,9 @@ parrot(kiss):
     
 ^healing$: 
     user.game_stop()
-    user.set_repeat_button("z", 1)
-    user.press_key_x_times("x", 4, 2)
+    user.press_key_x_times("x", 4, 1)
+    sleep(6s)
+    user.press_key_x_times("z", 3, 1)
 
 ^continue$: 
     user.press_key_x_times("z", 2, 1)
@@ -83,7 +84,7 @@ parrot(kiss):
 
 ^shift$: user.click_image("pokemon_white_shift.png") 
 
-^switch out$: user.click_spot("switch out")
+^switch out$: user.click_image("gold_switch.png")
 
 ^box left$: user.click_image("pk_box_left.png")
 ^box right$: user.click_image("pk_box_right.png")
@@ -91,17 +92,20 @@ parrot(kiss):
 ^tricky$: user.set_repeat_button("click", 1)
 
 key(`):
-    user.set_repeat_button("z", 2)
+    user.set_repeat_button("z", 3)
     user.conditional_image_button_press("z", "gold_chat.png", 2500, true, 1500, true, "x", "x")
 
 ^last$:
     user.click_image("gold_bag.png") 
     user.click_image("gold_last.png") 
     user.press_key_x_times("x", 2, 1)
-    user.set_repeat_button("x", 3)
+    user.set_repeat_button("x", 5)
 
-^running$: user.click_spot("running")
+^running$: user.game_click_spot("running")
 
 ^learn set$: 
     user.click_image("gold_summary.png")
     user.click_image("gold_learnset.png")
+
+^telephone$: 
+    user.click_image("gold_gear.png")
