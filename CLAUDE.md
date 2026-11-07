@@ -46,6 +46,19 @@ This repo IS the `jarrod/` directory. The sibling directories under `~/.talon/us
 - Every time you create or modify a file check the logs to see the debug message and confirm whether you broke anything
 - Every single time you create or modify a file check the talon logs for debug messages. every single time.
 
+### Testing Game-Specific Changes (focus-aware)
+- Jarrod has the terminal in the foreground while talking to Claude Code, but the game is usually running in the background. A plain REPL test of a game change runs against the terminal, not the game.
+- For any change specific to a game (`gaming/games/<game>.talon` or helpers used by that game), test with:
+  ```bash
+  claude_helpers/game_test.sh gaming/games/<game>.talon '<repl command>' [--wait SECS] [--screenshot] [--mimic]
+  ```
+  It reads the file's context header (`app:`/`title:`), checks that a matching window is running, focuses it, runs the command, waits `--wait` seconds (default 1), optionally screenshots, then **always** refocuses the terminal and tails the log.
+- Use a longer `--wait` for cron-driven actions (repeat buttons, pathfinding), because they need the game focused while they run.
+- Prefer direct `actions.user.*` calls. Use `--mimic` only to test a voice binding via `mimic(...)`: it temporarily switches to `user.game` mode and restores the previous modes afterwards.
+- Exit 2 = game not running. Exit 3 = a streaming app (Moonlight / NVidia GeForce NOW) is running but `user.active_manual_game` doesn't match the file's header, so a different game is live. In both cases nothing is focused. Fall back to the plain REPL only for focus-independent checks (action registration, syntax), and tell Jarrod the in-game test was skipped. Exit 1 = focus failed or the command raised an exception.
+- For streaming apps, the game is identified by the `user.active_manual_game` scope (`storage["user.manual_game"]`, set via `user.set_manual_game`), compared against the header's `user.active_manual_game:` line.
+- Implementation: `claude_helpers/game_focus.py` (actions `claude_game_status`, `claude_focus_game`, `claude_restore_focus`, `claude_enter_game_mode`, `claude_restore_modes`).
+
 ### Repository Management
 - When I say to commit my changes, this applies to the `jarrod/` directory — the sibling directories are external Talon extensions and are not tracked here
 - The git repo lives at `~/.talon/user/jarrod/`, not at `~/.talon/user/`. `cd` into `jarrod/` before running git commands
