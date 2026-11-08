@@ -109,3 +109,13 @@ key(`):
 
 ^telephone$: 
     user.click_image("gold_gear.png")
+
+^touch$: user.super_click()
+
+^dang$: 
+    user.game_stop()
+    user.betterinput_with_sleep("down | x", "500ms")
+
+^rang$: 
+    user.game_stop()
+    user.betterinput_with_sleep("right | x", "500ms")

@@ -3,6 +3,7 @@ tag: user.8bitdo_selite
 -
 
 # Bindings for the 8bitdo selite controller, passed through hid-remapper.
+# hid-remapper config is in selite-hid-remapper-config.json
 # Used primarily for directional pad control
 
 key(;): user.game_stop()
