@@ -21,6 +21,8 @@ conditional_image_job = None
 conditional_image_delay_job = None
 # State for flash-tolerant conditional image presses (blinking indicators)
 FLASH_SAMPLE_MS = 150
+# Sightings this soon after a press are the previous screen (game hasn't processed the press yet)
+FLASH_STALE_AFTER_PRESS_MS = 250
 flash_state = {"active": False}
 image_click_job = None
 held_button = None
@@ -909,12 +911,12 @@ class Actions:
             return
         now = time.monotonic()
         tolerance = flash_tolerance_ms / 1000
-        if actions.user.image_appeared_on_screen(image_name):
+        last_press = flash_state["last_press"]
+        since_press = now - last_press
+        if since_press >= FLASH_STALE_AFTER_PRESS_MS / 1000 and actions.user.image_appeared_on_screen(image_name):
             flash_state["last_seen"] = now
             flash_state["seen_since_press"] = True
         last_seen = flash_state["last_seen"]
-        last_press = flash_state["last_press"]
-        since_press = now - last_press
 
         if image_present:
             # Absence is measured from the later of the last sighting and the last press,

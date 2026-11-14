@@ -46,7 +46,7 @@ parrot(tch): key("z")
 
 key(`): 
     user.set_repeat_button("z", 2)
-    user.conditional_image_button_press("x", "red_chat.png", 2000, true, 0, true, "x", "x", 1500)
+    user.conditional_image_button_press("x", "pokemon_red_chat.png", 2000, true, 0, true, "x", "x", 1500)
 
 # The higher the number the slower the speed
 ^walk$: user.set_global_variable("repeat_button_speed", 600)
