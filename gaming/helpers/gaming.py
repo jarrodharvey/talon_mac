@@ -19,6 +19,9 @@ button_presser_job = None
 grinding_job = None
 conditional_image_job = None
 conditional_image_delay_job = None
+# State for flash-tolerant conditional image presses (blinking indicators)
+FLASH_SAMPLE_MS = 150
+flash_state = {"active": False}
 image_click_job = None
 held_button = None
 repeat_button_speed = 250
@@ -323,6 +326,7 @@ class Actions:
         conditional_image_job = None
         cron.cancel(conditional_image_delay_job)
         conditional_image_delay_job = None
+        flash_state["active"] = False
         actions.user.betterinput_cron_cancel()
         actions.user.stop_continuous_navigation()
         actions.user.rmb_compass_stop()
@@ -811,7 +815,7 @@ class Actions:
 
         return total_ms
 
-    def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True, wait_before: int = 0, stop_first: bool = True, initial_button: str = "", press_final_button: str = ""):
+    def conditional_image_button_press(action_button: str, image_name: str, wait_time: int = 0, image_present: bool = True, wait_before: int = 0, stop_first: bool = True, initial_button: str = "", press_final_button: str = "", flash_tolerance_ms: int = 0):
         """Presses a button if an image is present or not present on the screen
 
         Args:
@@ -825,6 +829,9 @@ class Actions:
             initial_button: Optional button/sequence to press before image check starts.
                            Accepts simple keys ("return") or betterinput sequences ("space | 500ms | return")
             press_final_button: Optional button to press after image condition is met
+            flash_tolerance_ms: For blinking images. If > 0, the screen is sampled every
+                           FLASH_SAMPLE_MS and the image counts as visible if it was seen within
+                           the last flash_tolerance_ms. 0 = original single-sample behaviour.
         """
         global conditional_image_job
         global conditional_image_delay_job
@@ -832,13 +839,26 @@ class Actions:
             actions.user.game_stop()
 
         condition = "visible" if image_present else "not visible"
+        flash_note = f" (flash tolerance {flash_tolerance_ms}ms)" if flash_tolerance_ms > 0 else ""
         actions.user.hud_publish_content(
-            f"Pressing {action_button} every {wait_time}ms while {image_name} is {condition}",
+            f"Pressing {action_button} every {wait_time}ms while {image_name} is {condition}{flash_note}",
             "example", "Pressing button")
 
         def start_conditional_check():
             global conditional_image_job
-            if image_present:
+            if flash_tolerance_ms > 0:
+                now = time.monotonic()
+                flash_state.clear()
+                flash_state.update({
+                    "active": True,
+                    "start": now,
+                    "last_seen": None,
+                    # Pretend a press just happened so the first press waits for a sighting
+                    "last_press": now,
+                    "seen_since_press": False,
+                })
+                conditional_image_job = cron.interval(f"{FLASH_SAMPLE_MS}ms", lambda: actions.user.conditional_image_flash_helper(action_button, image_name, wait_time, image_present, flash_tolerance_ms, press_final_button))
+            elif image_present:
                 conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, True, press_final_button))
             else:
                 conditional_image_job = cron.interval(f"{wait_time}ms", lambda: actions.user.conditional_image_button_press_helper(action_button, image_name, False, press_final_button))
@@ -882,6 +902,51 @@ class Actions:
                     time.sleep(0.5)  # Wait for game to be ready
                     actions.key(press_final_button)
             cron.after("10ms", cleanup_and_final)
+    def conditional_image_flash_helper(action_button: str, image_name: str, wait_time: int, image_present: bool, flash_tolerance_ms: int, press_final_button: str = ""):
+        """Flash-tolerant sampler for conditional_image_button_press (handles blinking images)"""
+        global conditional_image_job
+        if not flash_state.get("active"):
+            return
+        now = time.monotonic()
+        tolerance = flash_tolerance_ms / 1000
+        if actions.user.image_appeared_on_screen(image_name):
+            flash_state["last_seen"] = now
+            flash_state["seen_since_press"] = True
+        last_seen = flash_state["last_seen"]
+        last_press = flash_state["last_press"]
+        since_press = now - last_press
+
+        if image_present:
+            # Absence is measured from the later of the last sighting and the last press,
+            # so text-scroll gaps after a press are tolerated.
+            reference = max(last_seen or 0, last_press)
+            condition_met = (now - reference) < tolerance
+            should_press = flash_state["seen_since_press"] and since_press >= wait_time / 1000
+        else:
+            # Any sighting (even one blink) means the image is present -> stop.
+            # Only press once it has stayed unseen for a full tolerance window.
+            condition_met = last_seen is None
+            should_press = (now - flash_state["start"]) >= tolerance and since_press >= wait_time / 1000
+
+        if condition_met:
+            if should_press:
+                actions.key(action_button)
+                flash_state["last_press"] = now
+                flash_state["seen_since_press"] = False
+            return
+
+        flash_state["active"] = False
+        print(f"conditional_image_flash_helper: {image_name} condition ended, stopping")
+
+        def cleanup_and_final():
+            global conditional_image_job
+            cron.cancel(conditional_image_job)
+            conditional_image_job = None
+            actions.user.hud_disable_id('Text panel')
+            if press_final_button:
+                time.sleep(0.5)  # Wait for game to be ready
+                actions.key(press_final_button)
+        cron.after("10ms", cleanup_and_final)
     def click_then_wait(wait_time: int):
         """Clicks the mouse then waits for a specified time"""
         actions.user.super_click()
