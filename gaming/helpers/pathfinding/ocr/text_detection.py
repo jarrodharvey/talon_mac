@@ -172,6 +172,11 @@ def score_word_fuzzy(candidate_text: str, target_text: str, threshold: float) ->
     if target_normalized not in homophones_normalized:
         homophones_normalized.append(target_normalized)
     
+    # Single-character OCR fragments (stray letters, cursor glyphs) score 1.0 on
+    # partial ratio against almost any target, so only accept them as exact matches
+    if len(candidate_normalized.strip()) <= 1:
+        return 1.0 if candidate_normalized in homophones_normalized else 0.0
+    
     best_score = 0.0
     best_method = None
     best_homophone = None
@@ -382,6 +387,10 @@ class OCRTextDetectionActions:
                             if target_text.lower() in word.text.lower():
                                 text_matches.append(word_info)
 
+                    # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
+                    if text_matches:
+                        text_matches = filter_hud_log_results(text_matches)
+
                     # If exact matches found, use them
                     if text_matches:
                         print(f"Found {len(text_matches)} exact word matches for '{target_text}'")
@@ -543,6 +552,10 @@ class OCRTextDetectionActions:
                         if target_text.lower() in word.text.lower():
                             text_matches.append(word_info)
                 
+                # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
+
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
                     fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")
@@ -648,6 +661,10 @@ class OCRTextDetectionActions:
                             # Try exact matching first
                             if target_text.lower() in word.text.lower():
                                 text_matches.append(word_info)
+
+                    # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
+                    if text_matches:
+                        text_matches = filter_hud_log_results(text_matches)
 
                     # If exact matches found, use them
                     if text_matches:
@@ -851,6 +868,10 @@ class OCRTextDetectionActions:
                         if target_text.lower() in word.text.lower():
                             text_matches.append(word_info)
                 
+                # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
+                if text_matches:
+                    text_matches = filter_hud_log_results(text_matches)
+
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
                     fuzzy_threshold = settings.get("user.menu_fuzzy_threshold")

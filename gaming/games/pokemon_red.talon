@@ -13,6 +13,8 @@ settings():
     user.uses_pathfinding = true
     user.navigation_interval = 100
     user.uses_wasd = false
+    # Pixel font OCR misreads letters (SAVE -> "S4VE", Jaro-Winkler 0.85)
+    user.menu_fuzzy_threshold = 0.8
     user.disable_hud_log_exclusion = 0
     # Grid navigation. Width from battle menu (FIGHT->PKMN = 285).
     # Height from move list (48); battle menu rows are 95 apart, so it sends
@@ -120,3 +122,9 @@ trip:
     key("x")
     sleep(4s)
     key("x")
+
+^save$:
+    user.game_stop()
+    key("enter")
+    sleep(500ms)
+    user.navigate_to_word("Save")
