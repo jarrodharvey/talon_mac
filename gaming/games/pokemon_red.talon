@@ -6,7 +6,7 @@ app: SameBoy
 settings():
     key_hold = 70
     user.navigation_mode = "unified"
-    user.cursor_directory = "fire_red"
+    user.cursor_directory = "pokemon_red"
     user.game_action_button = "x" 
     user.highlight_proximity_x = 90
     user.highlight_proximity_y = 40
@@ -14,6 +14,13 @@ settings():
     user.navigation_interval = 100
     user.uses_wasd = false
     user.disable_hud_log_exclusion = 0
+    # Grid navigation. Width from battle menu (FIGHT->PKMN = 285).
+    # Height from move list (48); battle menu rows are 95 apart, so it sends
+    # 2 presses there and relies on the menu clamping at its edge.
+    user.grid_unit_width = 285
+    user.grid_unit_height = 48
+    user.grid_key_hold_time = 200
+    user.grid_key_interval = 50
 
 tag(): user.8bitdo_selite
 tag(): user.user_arrows
@@ -32,13 +39,14 @@ parrot(click):
 parrot(tch): key("z")
 
 ^dialogue$: user.set_repeat_button("z", 2)
-^battle$: user.set_repeat_button("x", 0.5)
+^speed$: user.set_repeat_button("x", 0.5)
 
 key(`): 
     user.set_repeat_button("z", 2)
     user.conditional_image_button_press("x", "red_chat.png", 2000, true, 0, true, "x", "x", 1500)
 
-^walk$: user.set_global_variable("repeat_button_speed", 500)
+# The higher the number the slower the speed
+^walk$: user.set_global_variable("repeat_button_speed", 600)
 ^jog$: user.set_global_variable("repeat_button_speed", 300)
 ^sprint$: user.set_global_variable("repeat_button_speed", 100)
 ^tiptoe$: user.set_global_variable("repeat_button_speed", 800)
@@ -83,6 +91,8 @@ trip:
 
 ^path dismiss$:
     user.hide_pathfinding_debug_markers()
+
+^calibrate grid$: user.calibrate_grid_units()
 
 ^actions <number>$: user.set_pathfinding_global_variable("default_action_button_count", number)
 
