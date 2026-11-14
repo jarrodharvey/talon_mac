@@ -21,6 +21,7 @@ gamepad(south:up):
 #   single_press - tap `button` once
 #   hold         - hold `button` down until east is released
 #   image        - click image template `button` every `interval` seconds
+#   grinding     - run start_grinding (button, interval ms, battle_image, dir_hold, victory_image) while east is held
 #   key (default) - press `button` every `interval` seconds, held for `key_hold` ms
 # Releasing east (below) calls game_stop(), which cancels whatever was started.
 gamepad(east:down): user.gamepad_east_down()

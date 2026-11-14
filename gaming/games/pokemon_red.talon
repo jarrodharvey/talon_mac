@@ -49,7 +49,7 @@ key(`):
     user.conditional_image_button_press("x", "pokemon_red_chat.png", 2000, true, 0, true, "x", "x", 1500)
 
 # The higher the number the slower the speed
-^walk$: user.set_global_variable("repeat_button_speed", 600)
+^walk$: user.set_global_variable("repeat_button_speed", 700)
 ^jog$: user.set_global_variable("repeat_button_speed", 300)
 ^sprint$: user.set_global_variable("repeat_button_speed", 100)
 ^tiptoe$: user.set_global_variable("repeat_button_speed", 800)
@@ -136,3 +136,9 @@ trip:
     user.betterinput_with_sleep("x:5", "1000ms")
     sleep(6s)
     user.betterinput_with_sleep("z:3", "1500ms")
+
+^grinding$: user.set_grinding_button("x", 100, "pokemon_red_battles.png")
+
+^run away$:
+    user.game_stop()
+    user.betterinput_with_sleep("z | x | z", "500ms") 

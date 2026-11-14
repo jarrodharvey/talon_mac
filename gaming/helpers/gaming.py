@@ -274,6 +274,22 @@ class Actions:
         with open(file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
         print(f"Updated {file_path} for hold of {button}")
+    def set_grinding_button(action_button: str, interval: int, battle_image: str, dir_hold: int = 0, victory_image: str = ""):
+        """Populate button_interval.json so gamepad east grinds (see start_grinding) while held"""
+        file_path = os.path.expanduser('~/.talon/user/jarrod/gaming/helpers/button_interval.json')
+        data = {
+            "button": action_button,
+            "interval": interval,
+            "action_type": "grinding",
+            "key_hold": settings.get("key_hold", 0),
+            "uses_wasd": int(settings.get("user.uses_wasd")),
+            "battle_image": battle_image,
+            "dir_hold": dir_hold,
+            "victory_image": victory_image,
+        }
+        with open(file_path, 'w') as json_file:
+            json.dump(data, json_file, indent=4)
+        print(f"Updated {file_path} for grinding with {action_button} every {interval}ms (battle image: {battle_image})")
     def game_stop():
         """Stop gaming mode actions"""
         global button_presser_job
@@ -638,6 +654,15 @@ class Actions:
             actions.user.hud_publish_content(f"Holding {button_to_press}", "example", "Pressing button")
             return
 
+        if action_type == "grinding":
+            battle_image = actions.user.get_value_from_json_file(config_path, "battle_image")
+            dir_hold = actions.user.get_value_from_json_file(config_path, "dir_hold", default=0)
+            victory_image = actions.user.get_value_from_json_file(config_path, "victory_image", default="")
+            uses_wasd = actions.user.get_value_from_json_file(config_path, "uses_wasd")
+            actions.user.start_grinding(button_to_press, int(interval_in_seconds), battle_image, int(dir_hold), victory_image, int(key_hold), int(uses_wasd))
+            actions.user.hud_publish_content(f"Grinding with {button_to_press}", "example", "Pressing button")
+            return
+
         if action_type == "image":
             actions.user.start_image_click(button_to_press, interval_in_seconds)
             hud_message = f'Clicking {button_to_press} every {interval_in_seconds} seconds'
@@ -759,7 +784,7 @@ class Actions:
         # returns true with a specific image of piece on the screen.
         image_coordinates = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}")
         return(len(image_coordinates) > 0)
-    def start_grinding(action_button: str, interval: int, battle_image: str, dir_hold: int = 0, victory_image: str = ""):
+    def start_grinding(action_button: str, interval: int, battle_image: str, dir_hold: int = 0, victory_image: str = "", key_hold: int = -1, uses_wasd: int = -1):
         """Start grinding in a game
 
         Args:
@@ -768,34 +793,40 @@ class Actions:
             battle_image: Image to detect for battle state
             dir_hold: Time in milliseconds to hold direction keys (default: 0 for instant press)
             victory_image: Image to detect for victory screen (default: "" for no victory detection)
+            key_hold: ms to hold each key press (-1 = use the key_hold setting)
+            uses_wasd: 1/0 to force WASD/arrows (-1 = use the user.uses_wasd setting)
         """
         global grinding_job
         actions.user.game_stop()
-        grinding_job = cron.interval(f"{interval}ms", lambda: actions.user.grinding(action_button, battle_image, dir_hold, victory_image))
-    def grinding(action_button: str, battle_image: str, dir_hold: int = 0, victory_image: str = ""):
+        grinding_job = cron.interval(f"{interval}ms", lambda: actions.user.grinding(action_button, battle_image, dir_hold, victory_image, key_hold, uses_wasd))
+    def grinding(action_button: str, battle_image: str, dir_hold: int = 0, victory_image: str = "", key_hold: int = -1, uses_wasd: int = -1):
         """If the battle or victory image is on the screen then press the action button, otherwise press a random direction button"""
-        use_wasd = settings.get("user.uses_wasd")
+        # Explicit values let grinding run outside the game's context (e.g. from gamepad east,
+        # when user.game mode is off and the game's settings() block doesn't apply)
+        use_wasd = settings.get("user.uses_wasd") if uses_wasd < 0 else bool(uses_wasd)
+        hold_ms = settings.get("key_hold", 0) if key_hold < 0 else key_hold
         if use_wasd:
             directions = ["a", "d", "w", "s"]  # left, right, up, down in WASD
         else:
             directions = ["left", "right", "up", "down"]
 
+        def press(key: str, ms: float):
+            if ms > 0:
+                actions.key(f"{key}:down")
+                time.sleep(ms / 1000.0)
+                actions.key(f"{key}:up")
+            else:
+                actions.key(key)
+
         # Check for battle or victory screen
         if actions.user.image_appeared_on_screen(battle_image):
-            actions.key(action_button)
+            press(action_button, hold_ms)
         elif victory_image and actions.user.image_appeared_on_screen(victory_image):
-            actions.key(action_button)
+            press(action_button, hold_ms)
         else:
             # Walk around looking for battles
             direction = directions[random.randint(0,3)]
-            if dir_hold > 0:
-                # Hold the key for specified duration
-                actions.key(f"{direction}:down")
-                time.sleep(dir_hold / 1000.0)  # Convert ms to seconds
-                actions.key(f"{direction}:up")
-            else:
-                # Instant press
-                actions.key(direction)
+            press(direction, dir_hold if dir_hold > 0 else hold_ms)
     def calculate_betterinput_duration(action_str: str) -> int:
         """Calculate total duration of a betterinput sequence in milliseconds
 
