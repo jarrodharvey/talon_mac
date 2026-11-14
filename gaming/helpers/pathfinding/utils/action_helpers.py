@@ -13,7 +13,7 @@ def press_action_button_multiple(button: str, count: int = 1, interval: float = 
     for i in range(count):
         actions.key(button)
         if i < count - 1:  # Don't sleep after last press
-            actions.sleep(f"{interval}s")
+            actions.sleep(float(interval))
 
 @mod.action_class
 class ActionHelpersActions:

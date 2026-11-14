@@ -29,6 +29,11 @@ disambiguation_generator = None
 mod.mode("gaming_pathfinding_disambiguation")
 
 
+# Last OCR position of the current navigation target, reused when the text goes unreadable
+last_found_target_coords = None
+target_miss_count = 0
+MAX_TARGET_MISSES = 5
+
 def reset_disambiguation():
     """Reset disambiguation state and hide any active UI"""
     global ambiguous_matches, disambiguation_generator, disambiguation_canvas
@@ -313,8 +318,17 @@ class CoreNavigationActions:
                 # Show/update target crosshair
                 actions.user.show_target_crosshair(text_coords)
             else:
+                global last_found_target_coords, target_miss_count
                 text_coords = actions.user.get_text_coordinates(target_text)
-                if not text_coords:
+                if text_coords:
+                    last_found_target_coords = text_coords
+                    target_miss_count = 0
+                elif last_found_target_coords and target_miss_count < MAX_TARGET_MISSES:
+                    # Highlighted text often stops OCRing (e.g. cursor glyph merges: "SAVE" -> "IS4VE")
+                    target_miss_count += 1
+                    text_coords = last_found_target_coords
+                    print(f"Text '{target_text}' not found, using last known coords {text_coords} (miss {target_miss_count}/{MAX_TARGET_MISSES})")
+                else:
                     print(f"Could not find text: {target_text}")
                     actions.user.stop_continuous_navigation()
                     return False
@@ -509,6 +523,9 @@ class CoreNavigationActions:
             navigation_job = None
         
         # Reset navigation state
+        global last_found_target_coords, target_miss_count
+        last_found_target_coords = None
+        target_miss_count = 0
         navigation_steps_taken = 0
         last_direction_pressed = None
         cursor_position_history = []
@@ -524,7 +541,7 @@ class CoreNavigationActions:
         
         navigation_job = cron.interval(f"{navigation_interval}ms", safe_navigate_step)
         max_steps_text = f" (max {max_steps} steps)" if max_steps else ""
-        action_text = f" (will press '{action_button}')" if action_button else ""
+        action_text = f" (will press '{action_button}' x{action_count}, {action_interval}s apart)" if action_button else ""
         print(f"Started continuous navigation to '{target_text}'{action_text} every {navigation_interval}ms{max_steps_text}")
 
     def stop_continuous_navigation() -> None:
@@ -563,13 +580,15 @@ class CoreNavigationActions:
         """Navigate to any word found via OCR with configurable input method and action"""
         
         highlight_image = settings.get("user.highlight_image")
-        action_count = int(pathfinding_settings.default_action_button_count) if isinstance(pathfinding_settings.default_action_button_count, str) else pathfinding_settings.default_action_button_count
-        action_interval = settings.get("user.default_action_button_interval")
-        
+        if action_count is None:
+            action_count = int(pathfinding_settings.default_action_button_count)
+        if action_interval is None:
+            action_interval = settings.get("user.default_action_button_interval")
+
         # Determine input method
         if use_wasd is None:
             use_wasd = settings.get("user.uses_wasd")
-        
+
         # Convert word/phrase to proper case for search - handle TimestampedText objects
         if hasattr(word, 'text'):
             # For multi-word phrases, capitalize each word

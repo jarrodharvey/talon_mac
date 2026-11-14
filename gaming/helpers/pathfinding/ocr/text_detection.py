@@ -290,6 +290,23 @@ def filter_hud_log_results(text_matches):
 
     return filtered_matches
 
+def filter_outside_active_window(text_matches):
+    """Drop OCR results outside the focused (game) window, e.g. the macOS menu-bar clock"""
+    from talon import ui
+    rect = ui.active_window().rect
+    filtered = []
+    for match in text_matches:
+        x, y = match.get('coords', (0, 0))
+        if rect.x <= x <= rect.x + rect.width and rect.y <= y <= rect.y + rect.height:
+            filtered.append(match)
+        else:
+            print(f"DEBUG: Excluded '{match.get('text', '')}' at {(x, y)} (outside active window)")
+    return filtered
+
+def filter_ocr_results(text_matches):
+    """Apply all OCR result filters: active window bounds, then HUD log region"""
+    return filter_hud_log_results(filter_outside_active_window(text_matches))
+
 @mod.action_class
 class OCRTextDetectionActions:
     def get_text_coordinates(target_text: str, source_command: str = None):
@@ -359,7 +376,7 @@ class OCRTextDetectionActions:
                     phrase_matches = find_phrase_sequences(target_text, contents.result.lines, fuzzy_threshold)
                     if phrase_matches:
                         # Filter HUD matches early so Phase 2 can run if all Phase 1 matches were HUD echoes
-                        phrase_matches = filter_hud_log_results(phrase_matches)
+                        phrase_matches = filter_ocr_results(phrase_matches)
                     if phrase_matches:
                         phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
                         text_matches = phrase_matches
@@ -389,7 +406,7 @@ class OCRTextDetectionActions:
 
                     # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
                     if text_matches:
-                        text_matches = filter_hud_log_results(text_matches)
+                        text_matches = filter_ocr_results(text_matches)
 
                     # If exact matches found, use them
                     if text_matches:
@@ -433,7 +450,7 @@ class OCRTextDetectionActions:
 
                 # Filter out results in the HUD log region
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 if text_matches:
                     global current_target_width
@@ -554,7 +571,7 @@ class OCRTextDetectionActions:
                 
                 # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
@@ -567,7 +584,7 @@ class OCRTextDetectionActions:
 
                 # Filter out results in the HUD log region
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 # Restore HUD command echo after OCR check
                 restore_hud_command_echo(restore_text)
@@ -635,7 +652,7 @@ class OCRTextDetectionActions:
                     phrase_matches = find_phrase_sequences(target_text, contents.result.lines, fuzzy_threshold)
                     if phrase_matches:
                         # Filter HUD matches early so Phase 2 can run if all Phase 1 matches were HUD echoes
-                        phrase_matches = filter_hud_log_results(phrase_matches)
+                        phrase_matches = filter_ocr_results(phrase_matches)
                     if phrase_matches:
                         phrase_matches.sort(key=lambda x: x['fuzzy_score'], reverse=True)
                         text_matches = phrase_matches
@@ -664,7 +681,7 @@ class OCRTextDetectionActions:
 
                     # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
                     if text_matches:
-                        text_matches = filter_hud_log_results(text_matches)
+                        text_matches = filter_ocr_results(text_matches)
 
                     # If exact matches found, use them
                     if text_matches:
@@ -705,7 +722,7 @@ class OCRTextDetectionActions:
 
                 # Filter out results in the HUD log region
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 if text_matches:
                     if len(text_matches) == 1:
@@ -870,7 +887,7 @@ class OCRTextDetectionActions:
                 
                 # Drop HUD command echoes first so an echo of the spoken target can't block fuzzy matching
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 # Check fuzzy matching if no exact matches
                 if not text_matches and settings.get("user.menu_enable_fuzzy_matching") and RAPIDFUZZ_AVAILABLE and all_words:
@@ -883,7 +900,7 @@ class OCRTextDetectionActions:
 
                 # Filter out results in the HUD log region
                 if text_matches:
-                    text_matches = filter_hud_log_results(text_matches)
+                    text_matches = filter_ocr_results(text_matches)
 
                 # Restore HUD command echo after OCR check
                 restore_hud_command_echo(restore_text)

@@ -5,7 +5,8 @@ app: SameBoy
 
 settings():
     key_hold = 70
-    user.navigation_mode = "unified"
+    # Gen 1 menus are vertical lists (battle 2x2 menu uses grid nav instead)
+    user.navigation_mode = "vertical"
     user.cursor_directory = "pokemon_red"
     user.game_action_button = "x" 
     user.highlight_proximity_x = 90
@@ -123,8 +124,15 @@ trip:
     sleep(4s)
     key("x")
 
-^save$:
+^save game$:
     user.game_stop()
     key("enter")
     sleep(500ms)
-    user.navigate_to_word("Save")
+    # Navigation runs async: x on SAVE, then x again 3s later (after the prompt text prints) on YES
+    user.navigate_to_word("Save", false, 0, "x", false, 2, 3.0)
+
+^healing$: 
+    user.game_stop()
+    user.betterinput_with_sleep("x:5", "1000ms")
+    sleep(6s)
+    user.betterinput_with_sleep("z:3", "1500ms")
