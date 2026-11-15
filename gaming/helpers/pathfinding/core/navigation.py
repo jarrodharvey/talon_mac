@@ -544,6 +544,10 @@ class CoreNavigationActions:
         action_text = f" (will press '{action_button}' x{action_count}, {action_interval}s apart)" if action_button else ""
         print(f"Started continuous navigation to '{target_text}'{action_text} every {navigation_interval}ms{max_steps_text}")
 
+    def pathfinding_navigation_active() -> bool:
+        """True while a continuous pathfinding navigation job is running"""
+        return navigation_job is not None
+
     def stop_continuous_navigation() -> None:
         """Stop the continuous navigation job"""
         global navigation_job

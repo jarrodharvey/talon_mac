@@ -1,5 +1,6 @@
 gamepad(south:down):
     user.game_mode()
+    user.auto_progress_start()
     user.daily_exercise_reminder()
     # Set the discord microphone volume to zero
     #user.switch_microphone("Razer Kraken X USB")
@@ -8,6 +9,7 @@ gamepad(south:down):
     sound.set_microphone("External Microphone")
 
 gamepad(south:up):
+    user.auto_progress_stop()
     user.game_stop()
     mode.disable("user.game")
     speech.disable()

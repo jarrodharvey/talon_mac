@@ -1,4 +1,4 @@
-from talon import Module, actions, cron, storage, app, ctrl, settings, Context
+from talon import Module, actions, cron, storage, app, ctrl, settings, Context, ui
 import json
 import time
 import os
@@ -31,6 +31,10 @@ brow_rotate = "no"
 mouse_mover_job = None
 looking_around = "no"
 betterinput_cron_jobs = []
+# Battle auto-progress (runs only while gamepad south is held; see auto_progress_start)
+auto_progress_job = None
+auto_progress_state = {"last_check": 0.0, "last_press": 0.0}
+AUTO_PROGRESS_TICK_MS = 100
 
 _JSON_MISSING = object()
 
@@ -206,6 +210,34 @@ mod.setting(
     desc="Delay between grid key presses (milliseconds)"
 )
 
+mod.setting(
+    "auto_progress_images",
+    type=str,
+    default="",
+    desc="Comma-separated images_to_click templates that must ALL be on screen to auto-press auto_progress_button. Empty = disabled."
+)
+
+mod.setting(
+    "auto_progress_button",
+    type=str,
+    default="",
+    desc="Key pressed when all auto_progress_images are on screen"
+)
+
+mod.setting(
+    "auto_progress_interval",
+    type=int,
+    default=400,
+    desc="Milliseconds between auto-progress image checks"
+)
+
+mod.setting(
+    "auto_progress_cooldown",
+    type=int,
+    default=800,
+    desc="Milliseconds after an auto-progress press before checking again"
+)
+
 @mod.scope
 def eye_tracker_active():
     if actions.tracking.control_enabled():
@@ -224,6 +256,34 @@ def str_to_bool(s):
     else:
         raise ValueError("Cannot convert string to boolean: " + s)
     
+def auto_progress_tick():
+    """Cron tick: press auto_progress_button if every auto_progress_image is in the active window"""
+    try:
+        images = settings.get("user.auto_progress_images")
+        if not images:
+            return
+        now = time.monotonic()
+        if now - auto_progress_state["last_check"] < settings.get("user.auto_progress_interval") / 1000:
+            return
+        if now - auto_progress_state["last_press"] < settings.get("user.auto_progress_cooldown") / 1000:
+            return
+        auto_progress_state["last_check"] = now
+        # Yield to other automation so presses never stack
+        if (grinding_job or conditional_image_job or conditional_image_delay_job or button_presser_job
+                or flash_state.get("active") or actions.user.pathfinding_navigation_active()):
+            return
+        region = ui.active_window().rect
+        for image in [i.strip() for i in images.split(",") if i.strip()]:
+            if not actions.user.image_appeared_on_screen(image, region):
+                return
+        button = settings.get("user.auto_progress_button")
+        actions.key(button)
+        auto_progress_state["last_press"] = time.monotonic()
+        print(f"auto_progress: all of [{images}] visible, pressed {button}")
+    except Exception as e:
+        print(f"auto_progress_tick error: {e!r}")
+        raise
+
 @mod.action_class
 class Actions:
     def set_repeat_button(button: str, interval: float):
@@ -779,11 +839,25 @@ class Actions:
         """Stops all actions and presses a key"""
         actions.user.game_stop()
         cron.after("10ms", lambda: actions.key(key))
-    def image_appeared_on_screen(image: str):
-        """Detects if an image appears on screen"""
+    def image_appeared_on_screen(image: str, region: Any = None):
+        """Detects if an image appears on screen (optionally only within region)"""
         # returns true with a specific image of piece on the screen.
-        image_coordinates = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}")
+        image_coordinates = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}", 0, 0, region)
         return(len(image_coordinates) > 0)
+    def auto_progress_start():
+        """Start the battle auto-progress checker (press auto_progress_button when all auto_progress_images are visible)"""
+        global auto_progress_job
+        if auto_progress_job:
+            cron.cancel(auto_progress_job)
+        auto_progress_state["last_check"] = 0.0
+        auto_progress_state["last_press"] = 0.0
+        auto_progress_job = cron.interval(f"{AUTO_PROGRESS_TICK_MS}ms", auto_progress_tick)
+    def auto_progress_stop():
+        """Stop the battle auto-progress checker"""
+        global auto_progress_job
+        if auto_progress_job:
+            cron.cancel(auto_progress_job)
+            auto_progress_job = None
     def start_grinding(action_button: str, interval: int, battle_image: str, dir_hold: int = 0, victory_image: str = "", key_hold: int = -1, uses_wasd: int = -1):
         """Start grinding in a game
 

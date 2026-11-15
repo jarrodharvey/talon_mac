@@ -24,6 +24,10 @@ settings():
     user.grid_unit_height = 48
     user.grid_key_hold_time = 200
     user.grid_key_interval = 50
+    # Auto-dismiss battle messages: press x when in battle AND the dismiss arrow shows
+    # (arrow first: it's absent most of the time, so most checks stop after one match)
+    user.auto_progress_images = "pokemon_red_chat.png,pokemon_red_battles.png"
+    user.auto_progress_button = "x"
 
 tag(): user.8bitdo_selite
 tag(): user.user_arrows
