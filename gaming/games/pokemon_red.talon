@@ -10,7 +10,9 @@ settings():
     user.cursor_directory = "pokemon_red"
     user.game_action_button = "x" 
     user.highlight_proximity_x = 90
-    user.highlight_proximity_y = 40
+    # Move list rows are ~48px apart and the cursor sits ~11px below its row's
+    # text, so the adjacent row reads ~32px away. Real arrivals log 10-14px.
+    user.highlight_proximity_y = 20
     user.uses_pathfinding = true
     user.navigation_interval = 100
     user.uses_wasd = false
@@ -106,7 +108,7 @@ trip:
 
 ^actions <number>$: user.set_pathfinding_global_variable("default_action_button_count", number)
 
-^cycle$: key("backspace")
+^switch$: key("backspace")
 
 ^(detail | description | catch)$: key("a")
 
@@ -141,8 +143,8 @@ trip:
 ^healing$: 
     user.game_stop()
     user.betterinput_with_sleep("x:5", "1000ms")
-    sleep(6s)
-    user.betterinput_with_sleep("z:3", "1500ms")
+    sleep(7s)
+    user.betterinput_with_sleep("z:4", "1500ms")
 
 ^grinding$: user.set_grinding_button("x", 100, "pokemon_red_battles.png")
 

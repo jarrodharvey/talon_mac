@@ -61,6 +61,7 @@ parrot(kiss):
 
 ^(double | dub)$: user.press_key_x_times("x", 2, 1)
 ^(triple | trip)$: user.press_key_x_times("x", 3, 1)
+^quad$: user.press_key_x_times("x", 4, 1)
 
 ^track$: user.press_key_x_times("z", 3, 2)
 ^quack: user.press_key_x_times("z", 4, 2)
