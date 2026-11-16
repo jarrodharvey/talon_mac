@@ -28,6 +28,9 @@ settings():
     # (arrow first: it's absent most of the time, so most checks stop after one match)
     user.auto_progress_images = "pokemon_red_chat.png,pokemon_red_battles.png"
     user.auto_progress_button = "x"
+    # Chat arrow only counts in the bottom text box's corner (~0.75, 0.89 of the window).
+    # Shop item-list scroll arrow sits at ~0.65 and must not trigger.
+    user.auto_progress_regions = "0.70,0.82,0.13,0.13;"
 
 tag(): user.8bitdo_selite
 tag(): user.user_arrows

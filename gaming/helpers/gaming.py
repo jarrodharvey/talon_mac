@@ -1,4 +1,5 @@
 from talon import Module, actions, cron, storage, app, ctrl, settings, Context, ui
+from talon.types import Rect
 import json
 import time
 import os
@@ -225,6 +226,14 @@ mod.setting(
 )
 
 mod.setting(
+    "auto_progress_regions",
+    type=str,
+    default="",
+    desc="Optional per-image search regions, ';'-separated in the same order as auto_progress_images. "
+         "Each is 'x,y,w,h' as fractions (0-1) of the active window rect; an empty entry = whole window. Empty = whole window for all."
+)
+
+mod.setting(
     "auto_progress_interval",
     type=int,
     default=400,
@@ -256,8 +265,37 @@ def str_to_bool(s):
     else:
         raise ValueError("Cannot convert string to boolean: " + s)
     
+def parse_auto_progress_regions(regions_str: str, count: int, window_rect) -> list:
+    """Turn 'x,y,w,h;...' window fractions into screen Rects, one per image (empty entry = whole window)"""
+    if not regions_str.strip():
+        return [window_rect] * count
+    entries = regions_str.split(";")
+    if len(entries) != count:
+        raise ValueError(f"auto_progress_regions has {len(entries)} entries but auto_progress_images has {count}: {regions_str!r}")
+    rects = []
+    for entry in entries:
+        if not entry.strip():
+            rects.append(window_rect)
+            continue
+        parts = [p.strip() for p in entry.split(",")]
+        if len(parts) != 4:
+            raise ValueError(f"auto_progress_regions entry {entry!r} must be 'x,y,w,h'")
+        fx, fy, fw, fh = (float(p) for p in parts)
+        if not all(0 <= v <= 1 for v in (fx, fy, fw, fh)) or fx + fw > 1.0001 or fy + fh > 1.0001:
+            raise ValueError(f"auto_progress_regions entry {entry!r} must be fractions within the window (0-1)")
+        rects.append(Rect(
+            window_rect.x + fx * window_rect.width,
+            window_rect.y + fy * window_rect.height,
+            fw * window_rect.width,
+            fh * window_rect.height,
+        ))
+    return rects
+
+def split_auto_progress_images(images: str) -> list:
+    return [i.strip() for i in images.split(",") if i.strip()]
+
 def auto_progress_tick():
-    """Cron tick: press auto_progress_button if every auto_progress_image is in the active window"""
+    """Cron tick: press auto_progress_button if every auto_progress_image is in its region of the active window"""
     try:
         images = settings.get("user.auto_progress_images")
         if not images:
@@ -272,8 +310,10 @@ def auto_progress_tick():
         if (grinding_job or conditional_image_job or conditional_image_delay_job or button_presser_job
                 or flash_state.get("active") or actions.user.pathfinding_navigation_active()):
             return
-        region = ui.active_window().rect
-        for image in [i.strip() for i in images.split(",") if i.strip()]:
+        image_list = split_auto_progress_images(images)
+        regions = parse_auto_progress_regions(
+            settings.get("user.auto_progress_regions"), len(image_list), ui.active_window().rect)
+        for image, region in zip(image_list, regions):
             if not actions.user.image_appeared_on_screen(image, region):
                 return
         button = settings.get("user.auto_progress_button")
@@ -574,7 +614,7 @@ class Actions:
         if image_click_job:
             cron.cancel(image_click_job)
             image_click_job = None
-    def set_global_variable(var_name: str, value: str):
+    def set_global_variable(var_name: str, value: Any):
         """Set a global variable"""
         globals()[var_name] = value
     def press_key_if_condition_met(key: str, condition: str, requirement: str):
@@ -852,6 +892,22 @@ class Actions:
         auto_progress_state["last_check"] = 0.0
         auto_progress_state["last_press"] = 0.0
         auto_progress_job = cron.interval(f"{AUTO_PROGRESS_TICK_MS}ms", auto_progress_tick)
+    def auto_progress_debug():
+        """Print where each auto_progress_image matches in the active window (as window fractions) and whether it is inside its region"""
+        win = ui.active_window().rect
+        image_list = split_auto_progress_images(settings.get("user.auto_progress_images"))
+        regions = parse_auto_progress_regions(settings.get("user.auto_progress_regions"), len(image_list), win)
+        print(f"auto_progress_debug: window {win}")
+        for image, region in zip(image_list, regions):
+            matches = actions.user.mouse_helper_find_template_relative(f"{images_to_click_location}{image}", 0, 0, win)
+            in_region = actions.user.image_appeared_on_screen(image, region)
+            print(f"auto_progress_debug: {image} in_region={in_region} region={region}")
+            for m in matches:
+                fx = (m.x - win.x) / win.width
+                fy = (m.y - win.y) / win.height
+                fw = m.width / win.width
+                fh = m.height / win.height
+                print(f"  match abs=({m.x:.0f},{m.y:.0f},{m.width:.0f},{m.height:.0f}) frac=({fx:.3f},{fy:.3f},{fw:.3f},{fh:.3f})")
     def auto_progress_stop():
         """Stop the battle auto-progress checker"""
         global auto_progress_job
