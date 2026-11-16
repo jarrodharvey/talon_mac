@@ -11,7 +11,6 @@ settings():
     user.ocr_click_delay = 200
     user.ocr_click_hold = 800
     key_hold = 10
-    user.disable_hud_log_exclusion = 1
     user.travel_distance = 2
 
 # Enable arrow key movement commands

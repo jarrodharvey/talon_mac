@@ -6,7 +6,6 @@ user.active_manual_game: citizen sleeper
 settings():
     user.super_click_duration = 0.8
     key_hold = 10
-    user.disable_hud_log_exclusion = 1
 
 parrot(click): user.super_click()
 parrot(tch): user.click_image("citizen_leave.png")

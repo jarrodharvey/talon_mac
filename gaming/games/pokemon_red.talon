@@ -5,8 +5,10 @@ app: SameBoy
 
 settings():
     key_hold = 70
-    # Gen 1 menus are vertical lists (battle 2x2 menu uses grid nav instead)
+    # Gen 1 menus are mostly vertical lists; the battle menu is 2x2 (see below)
     user.navigation_mode = "vertical"
+    # FIGHT and PKMN share a row, so arrival must check X too
+    user.vertical_mode_check_x = 1
     user.cursor_directory = "pokemon_red"
     user.game_action_button = "x" 
     user.highlight_proximity_x = 90
@@ -18,7 +20,6 @@ settings():
     user.uses_wasd = false
     # Pixel font OCR misreads letters (SAVE -> "S4VE", Jaro-Winkler 0.85)
     user.menu_fuzzy_threshold = 0.8
-    user.disable_hud_log_exclusion = 0
     # Grid navigation. Width from battle menu (FIGHT->PKMN = 285).
     # Height from move list (48); battle menu rows are 95 apart, so it sends
     # 2 presses there and relies on the menu clamping at its edge.
@@ -70,6 +71,9 @@ dub|double:
 trip: 
     user.game_stop()
     user.betterinput_with_sleep("x:3", "1000ms")
+quad: 
+    user.game_stop()
+    user.betterinput_with_sleep("x:4", "1000ms")
 
 ^back$: key("z")
 ^dack$: user.betterinput_with_sleep("z:2", "1500ms")
@@ -127,7 +131,14 @@ trip:
     user.game_stop()
     key("s")
 
-^item$: 
+# Battle menu is a non-wrapping 2x2, so up+left always lands on FIGHT. OCR is
+# unreliable on that row: the ▶ cursor merges into the text ("AFIGHT", "FIGHT\F*]")
+# and the whole row is sometimes dropped, so navigation can fail before it starts.
+^fight$:
+    user.game_stop()
+    user.betterinput_with_sleep("up | left | x", "200ms")
+
+^item$:
     user.game_stop()
     key("x")
     sleep(4s)

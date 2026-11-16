@@ -396,7 +396,12 @@ class CoreNavigationActions:
             if navigation_mode == "vertical":
                 # Vertical mode - Y check only (use cursor position for proximity)
                 is_on_target = abs(cursor_y_diff) <= proximity_y
-                print(f"Vertical mode - Y close: {abs(cursor_y_diff)} <= {proximity_y}, On target: {is_on_target}")
+                if settings.get("user.vertical_mode_check_x"):
+                    # Side-by-side items on one row (e.g. a 2x2 menu) also need X alignment
+                    is_on_target = is_on_target and abs(cursor_x_diff) <= proximity_x
+                    print(f"Vertical mode - Y close: {abs(cursor_y_diff)} <= {proximity_y}, X close: {abs(cursor_x_diff)} <= {proximity_x}, On target: {is_on_target}")
+                else:
+                    print(f"Vertical mode - Y close: {abs(cursor_y_diff)} <= {proximity_y}, On target: {is_on_target}")
             elif navigation_mode == "horizontal":
                 # Horizontal mode - X check only (use cursor position for proximity)
                 is_on_target = abs(cursor_x_diff) <= proximity_x
@@ -427,7 +432,10 @@ class CoreNavigationActions:
             
             if navigation_mode == "vertical":
                 # Vertical mode - prioritize vertical movement
-                if abs(y_diff) > 10:
+                # With the X check on, "same row" must match the arrival Y threshold,
+                # otherwise a cursor offset >10px from its text keeps pressing up/down
+                row_threshold = proximity_y if settings.get("user.vertical_mode_check_x") else 10
+                if abs(y_diff) > row_threshold:
                     if y_diff > 0:
                         key_to_press = "s" if use_wasd else "down"
                         print(f"Pressing {key_to_press} (down)")

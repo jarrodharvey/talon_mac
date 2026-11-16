@@ -123,10 +123,10 @@ mod.setting(
 )
 
 mod.setting(
-    "disable_hud_log_exclusion",
+    "vertical_mode_check_x",
     type=bool,
     default=False,
-    desc="Disable HUD log exclusion zone filtering for OCR results (useful for games with UI in the bottom-right)"
+    desc="In vertical navigation mode, also require the cursor within highlight_proximity_x of the target before arriving (for menus with several items per row)"
 )
 
 mod.setting(

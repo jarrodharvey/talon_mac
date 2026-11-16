@@ -13,7 +13,6 @@ settings():
     user.uses_pathfinding = true
     user.navigation_interval = 100
     user.uses_wasd = false
-    user.disable_hud_log_exclusion = 0
 
 tag(): user.8bitdo_selite
 tag(): user.user_arrows
